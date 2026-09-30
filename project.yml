@@ -1,0 +1,53 @@
+name: ProjectRecord
+options:
+  bundleIdPrefix: dev.betty
+  deploymentTarget:
+    macOS: "26.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    MACOSX_DEPLOYMENT_TARGET: "26.0"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    ENABLE_HARDENED_RUNTIME: NO
+packages:
+  CoreXLSX:
+    url: https://github.com/CoreOffice/CoreXLSX
+    from: 0.14.2
+targets:
+  ProjectRecord:
+    type: application
+    platform: macOS
+    sources: [ProjectRecord]
+    dependencies:
+      - package: CoreXLSX
+    info:
+      path: ProjectRecord/Resources/Info.plist
+      properties:
+        CFBundleDisplayName: ProjectRecord
+        LSApplicationCategoryType: public.app-category.education
+        NSMicrophoneUsageDescription: ProjectRecord records your weekly sessions with students.
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: dev.betty.ProjectRecord
+        GENERATE_INFOPLIST_FILE: NO
+  ProjectRecordTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [ProjectRecordTests]
+    dependencies:
+      - target: ProjectRecord
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/ProjectRecord.app/Contents/MacOS/ProjectRecord
+        BUNDLE_LOADER: $(TEST_HOST)
+schemes:
+  ProjectRecord:
+    build:
+      targets:
+        ProjectRecord: all
+        ProjectRecordTests: [test]
+    test:
+      targets: [ProjectRecordTests]
