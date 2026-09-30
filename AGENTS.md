@@ -11,7 +11,7 @@ A personal native macOS app for a teacher who mentors ~30 students on their own 
 5. shows who has reported each week, plus a per-student timeline of summaries.
 
 ## Must-read docs
-- `docs/DECISIONS.md`: settled product/tech decisions (D1–D16), summary template, STT research. **Don't re-open these without asking the owner.**
+- `docs/DECISIONS.md`: settled product/tech decisions (D1–D21), summary template, STT research. **Don't re-open these without asking the owner.**
 - `docs/ARCHITECTURE.md`: pipeline, layout, models, engine protocols, storage.
 - `docs/ROADMAP.md`: milestones and status. **Update checkboxes when you finish work.**
 
