@@ -31,6 +31,7 @@ make run     # build + open the app
 - Engines are pluggable: add providers behind `TranscriptionEngine` / `SummarizationEngine` and register them in `EngineRegistry`. Views and models must not know about specific providers.
 - Put logic in `Services/` or `Engines/` as pure, testable functions (see `StudentImporter.rows(from:)`, `ClaudeCLISummarizer.parse`). Keep views thin.
 - Weeks are **derived** from `Session.date` via `WeekCalendar` (ISO Mon–Sun). Never store a week number.
+- **Never commit real student data** (names, MSSV, emails, recordings). Test fixtures in `ProjectRecordTests/Fixtures/` use fake data.
 - Secrets live in Keychain (`Keychain`, `KeychainKey`). Never commit API keys or put them in `UserDefaults`.
 - Data lives in `~/Documents/ProjectRecord/` (`AppPaths`). Audio paths are stored **relative** to that root.
 - Not sandboxed, not for the App Store: the app spawns the `claude` CLI via `Process` using an absolute path (GUI apps don't get the shell `PATH`).
