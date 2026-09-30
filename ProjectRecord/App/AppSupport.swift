@@ -8,13 +8,13 @@ enum AppPaths {
         return url
     }
 
-    static var store: URL { root.appending(path: "ProjectRecord.store") }
+    static var database: URL { root.appending(path: "ProjectRecord.sqlite") }
 
-    /// Relative path for a new recording: audio/<term>/<MSSV>/<yyyy-MM-dd_HHmm>.m4a
-    static func newAudioRelativePath(term: String, mssv: String, date: Date = .now) -> String {
+    /// Relative path for a new recording: audio/<group>/<MSSV>/<yyyy-MM-dd_HHmm>.m4a
+    static func newAudioRelativePath(group: String, mssv: String, date: Date = .now) -> String {
         let stamp = date.formatted(.verbatim("\(year: .defaultDigits)-\(month: .twoDigits)-\(day: .twoDigits)_\(hour: .twoDigits(clock: .twentyFourHour, hourCycle: .zeroBased))\(minute: .twoDigits)",
                                              timeZone: .current, calendar: .current))
-        return "audio/\(sanitize(term))/\(sanitize(mssv))/\(stamp).m4a"
+        return "audio/\(sanitize(group))/\(sanitize(mssv))/\(stamp).m4a"
     }
 
     static func absolute(_ relativePath: String) -> URL {

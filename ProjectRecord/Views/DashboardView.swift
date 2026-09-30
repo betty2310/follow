@@ -2,8 +2,8 @@ import SwiftUI
 
 /// Progress overview (docs/DECISIONS.md D13): this week's count, who hasn't reported, and a students × weeks grid.
 struct DashboardView: View {
-    let students: [Student]
-    var onSelect: (Student) -> Void
+    let progress: [StudentProgress]
+    var onSelect: (Int64) -> Void
     var weeksShown = 8
 
     private var weeks: [(id: WeekID, start: Date)] {
@@ -14,20 +14,19 @@ struct DashboardView: View {
         }
     }
 
-    private var sorted: [Student] { students.sorted { $0.fullName < $1.fullName } }
 
     var body: some View {
         let current = WeekCalendar.week(of: .now)
-        let missing = sorted.filter { !$0.hasReported(in: current) }
+        let missing = progress.filter { !$0.hasReported(in: current) }
 
-        if students.isEmpty {
+        if progress.isEmpty {
             ContentUnavailableView("No students yet", systemImage: "person.3",
-                                   description: Text("Import the term's student list (.xlsx) from the toolbar."))
+                                   description: Text("Import a student list (.xlsx) into a group from the toolbar."))
         } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     HStack(spacing: 16) {
-                        StatTile(title: "Reported this week", value: "\(students.count - missing.count)/\(students.count)")
+                        StatTile(title: "Reported this week", value: "\(progress.count - missing.count)/\(progress.count)")
                         StatTile(title: "Not reported yet", value: "\(missing.count)")
                     }
 
@@ -50,9 +49,9 @@ struct DashboardView: View {
                                 }
                             }
                             Divider()
-                            ForEach(sorted) { s in
+                            ForEach(progress) { s in
                                 GridRow {
-                                    Button(s.fullName) { onSelect(s) }.buttonStyle(.link)
+                                    Button(s.student.fullName) { onSelect(s.id) }.buttonStyle(.link)
                                     ForEach(weeks, id: \.id) { w in
                                         let done = s.hasReported(in: w.id)
                                         Image(systemName: done ? "checkmark.circle.fill" : "circle")
@@ -66,7 +65,6 @@ struct DashboardView: View {
                 .padding(24)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .navigationTitle("Dashboard")
         }
     }
 }
@@ -86,12 +84,12 @@ private struct StatTile: View {
 }
 
 private struct FlowList: View {
-    let students: [Student]
-    var onSelect: (Student) -> Void
+    let students: [StudentProgress]
+    var onSelect: (Int64) -> Void
     var body: some View {
         LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), alignment: .leading)], alignment: .leading, spacing: 6) {
             ForEach(students) { s in
-                Button(s.fullName) { onSelect(s) }.buttonStyle(.link)
+                Button(s.student.fullName) { onSelect(s.id) }.buttonStyle(.link)
             }
         }
     }

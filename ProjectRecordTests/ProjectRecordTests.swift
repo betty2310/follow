@@ -45,7 +45,7 @@ struct StudentImporterTests {
         #expect(mapping == [.mssv: 0, .fullName: 1, .email: 2])
         let rows = try StudentImporter.rows(from: table, mapping: mapping)
         #expect(rows.map(\.mssv) == ["20230001", "202400002"])
-        #expect(rows[1].fullName == "TRẦN THỊ MẪU")
+        #expect(rows[1].fullName == "Trần Thị Mẫu")
     }
 
     @Test func columnLettersRoundTrip() {
@@ -53,6 +53,72 @@ struct StudentImporterTests {
             #expect(StudentImporter.columnIndex(StudentImporter.columnLetter(i)) == i)
         }
         #expect(StudentImporter.columnLetter(26) == "AA")
+    }
+}
+
+struct NameNormalizationTests {
+    @Test func capitalizesFirstLetterOfEachWord() {
+        #expect(StudentImporter.normalizeName("NGUYỄN HÀ ANH") == "Nguyễn Hà Anh")
+        #expect(StudentImporter.normalizeName("  trần   chí cường ") == "Trần Chí Cường")
+        #expect(StudentImporter.normalizeName("đỗ đức") == "Đỗ Đức")
+    }
+
+    @Test func convertsDecomposedUnicodeToNFC() {
+        let decomposed = "Nguye\u{0302}\u{0303}n"   // "Nguyễn" as base letter + combining marks
+        let result = StudentImporter.normalizeName(decomposed)
+        #expect(result == "Nguyễn")
+        #expect(result.unicodeScalars.count == "Nguyễn".unicodeScalars.count)
+    }
+
+    @Test func importNormalizesNameAndEmail() throws {
+        let rows = try StudentImporter.rows(from: [["MSSV", "Họ tên", "Email"], [" 123 ", "LÊ  VĂN B", " B@Example.COM "]],
+                                            mapping: [.mssv: 0, .fullName: 1, .email: 2])
+        #expect(rows == [.init(mssv: "123", fullName: "Lê Văn B", className: "", projectTitle: "", email: "b@example.com")])
+    }
+}
+
+struct AppDatabaseTests {
+    private func row(_ mssv: String, _ name: String, project: String = "") -> StudentImporter.Row {
+        .init(mssv: mssv, fullName: name, className: "", projectTitle: project, email: "")
+    }
+
+    @Test func importIntoNewGroupThenMergeNeverDeletes() throws {
+        let db = try AppDatabase.inMemory()
+        let groupID = try db.importStudents([row("1", "An"), row("2", "Bình")], intoNewGroupNamed: "Đồ án 1")
+
+        let rows = [row("2", "Bình", project: "Chat app"), row("3", "Cường"), row("1", "An")]
+        #expect(try db.planImport(rows, into: groupID) == .init(new: 1, updated: 1, unchanged: 1))
+        try db.importStudents(rows, into: groupID)
+
+        let students = try db.progress(groupId: groupID).map(\.student)
+        #expect(students.map(\.mssv) == ["1", "2", "3"])
+        #expect(students[1].projectTitle == "Chat app")
+
+        // A re-import without student 3 keeps them.
+        try db.importStudents([row("1", "An")], into: groupID)
+        #expect(try db.progress(groupId: groupID).count == 3)
+    }
+
+    @Test func sameMSSVInTwoGroupsIsTwoStudents() throws {
+        let db = try AppDatabase.inMemory()
+        let g1 = try db.importStudents([row("1", "An")], intoNewGroupNamed: "A")
+        let g2 = try db.importStudents([row("1", "An")], intoNewGroupNamed: "B")
+        #expect(try db.progress(groupId: g1).first?.id != db.progress(groupId: g2).first?.id)
+    }
+
+    @Test func sessionsRoundTripAndDriveProgress() throws {
+        let db = try AppDatabase.inMemory()
+        let g = try db.importStudents([row("1", "An")], intoNewGroupNamed: "A")
+        let studentID = try db.progress(groupId: g)[0].id
+        let s = try db.insertSession(Session(studentId: studentID, date: .now, audioPath: "audio/x.m4a"))
+        try db.updateSession(id: s.id!) {
+            $0.utterances = [Utterance(speaker: "A", text: "Xin chào", start: 0, end: 1)]
+            $0.status = .done
+        }
+        let loaded = try #require(try db.session(id: s.id!))
+        #expect(loaded.utterances.first?.text == "Xin chào")
+        #expect(loaded.status == .done)
+        #expect(try db.progress(groupId: g)[0].hasReported(in: WeekCalendar.week(of: .now)))
     }
 }
 

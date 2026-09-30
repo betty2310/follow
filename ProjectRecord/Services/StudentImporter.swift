@@ -104,12 +104,31 @@ enum StudentImporter {
         guard missing.isEmpty else { throw Failure.missingColumns(missing.map(\.title)) }
         return table.dropFirst(firstRowIsHeader ? 1 : 0).compactMap { r in
             func at(_ f: Field) -> String { mapping[f].flatMap { $0 < r.count ? r[$0] : nil } ?? "" }
-            let mssv = at(.mssv), name = at(.fullName)
+            let mssv = cleanText(at(.mssv)), name = normalizeName(at(.fullName))
             guard !mssv.isEmpty, !name.isEmpty else { return nil }
-            return Row(mssv: mssv, fullName: name, className: at(.className), projectTitle: at(.projectTitle), email: at(.email))
+            return Row(mssv: mssv, fullName: name, className: cleanText(at(.className)),
+                       projectTitle: cleanText(at(.projectTitle)), email: cleanText(at(.email)).lowercased())
         }
     }
 
+    /// Unicode NFC + trimmed + collapsed whitespace. NFC matters: Vietnamese copied from Excel/web may be
+    /// decomposed (e.g. "e" + combining marks), which breaks search and MSSV/name matching.
+    static func cleanText(_ s: String) -> String {
+        s.precomposedStringWithCanonicalMapping
+            .split(whereSeparator: \.isWhitespace)
+            .joined(separator: " ")
+    }
+
+    /// "NGUYỄN  hà ANH" → "Nguyễn Hà Anh" (docs/DECISIONS.md D21). Applied on import only.
+    static func normalizeName(_ s: String) -> String {
+        let vi = Locale(identifier: "vi")
+        return cleanText(s)
+            .split(separator: " ")
+            .map { word in word.prefix(1).uppercased(with: vi) + word.dropFirst().lowercased(with: vi) }
+            .joined(separator: " ")
+    }
+
+    /// Key for fuzzy matching (headers, search): no case, no accents, no whitespace.
     static func normalize(_ s: String) -> String {
         s.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: Locale(identifier: "vi"))
             .replacingOccurrences(of: "đ", with: "d")

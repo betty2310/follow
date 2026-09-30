@@ -1,19 +1,25 @@
-import SwiftData
 import SwiftUI
 import UniformTypeIdentifiers
 
 /// Import sheet (docs/DECISIONS.md D18): explains the expected columns, lets the teacher pick a file,
-/// map each field to a column (auto-guessed), preview the result, then import as a new Term.
+/// map each field to a column (auto-guessed), choose the target group (existing or new), preview, then import.
+/// Importing into an existing group adds new MSSVs and updates existing ones; it never deletes (D20).
 struct ImportStudentsView: View {
-    @Environment(\.modelContext) private var context
+    enum Target: Hashable { case new, existing(Int64) }
+
+    @Environment(\.appDatabase) private var db
     @Environment(\.dismiss) private var dismiss
-    var onImported: (Term) -> Void
+    let groups: [StudentGroup]
+    let defaultGroupID: Int64?
+    var onImported: (Int64) -> Void
+
+    @State private var target: Target = .new
 
     @State private var fileURL: URL?
     @State private var table: [[String]] = []
     @State private var mapping: StudentImporter.Mapping = [:]
     @State private var firstRowIsHeader = true
-    @State private var termName = ""
+    @State private var newGroupName = ""
     @State private var picking = false
     @State private var error: String?
 
@@ -23,12 +29,20 @@ struct ImportStudentsView: View {
     private var preview: [StudentImporter.Row] {
         (try? StudentImporter.rows(from: table, mapping: mapping, firstRowIsHeader: firstRowIsHeader)) ?? []
     }
+    private var targetGroupID: Int64? {
+        if case .existing(let id) = target { id } else { nil }
+    }
+    private var plan: AppDatabase.ImportPlan? { try? db.planImport(preview, into: targetGroupID) }
+    private var targetIsValid: Bool {
+        target != .new || !newGroupName.trimmingCharacters(in: .whitespaces).isEmpty
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Form {
                 instructions
                 if fileURL != nil {
+                    groupSection
                     mappingSection
                     previewSection
                 }
@@ -43,14 +57,15 @@ struct ImportStudentsView: View {
                 }
                 Spacer()
                 Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
-                Button("Import \(preview.count) students", action: importNow)
+                Button("Import", action: importNow)
                     .keyboardShortcut(.defaultAction)
-                    .disabled(fileURL == nil || !missing.isEmpty || preview.isEmpty || termName.isEmpty)
+                    .disabled(fileURL == nil || !missing.isEmpty || preview.isEmpty || !targetIsValid)
             }
             .padding()
         }
         .frame(minWidth: 640, minHeight: 560)
         .fileImporter(isPresented: $picking, allowedContentTypes: [UTType(filenameExtension: "xlsx")!]) { load($0) }
+        .onAppear { if let defaultGroupID { target = .existing(defaultGroupID) } }
     }
 
     private var instructions: some View {
@@ -73,9 +88,21 @@ struct ImportStudentsView: View {
         }
     }
 
+    private var groupSection: some View {
+        Section("Import into group") {
+            Picker("Group", selection: $target) {
+                ForEach(groups) { g in Text(g.name).tag(Target.existing(g.id!)) }
+                if !groups.isEmpty { Divider() }
+                Text("New group…").tag(Target.new)
+            }
+            if target == .new {
+                TextField("New group name", text: $newGroupName, prompt: Text("e.g. Đồ án 1 – 2025.1"))
+            }
+        }
+    }
+
     private var mappingSection: some View {
         Section("Column mapping") {
-            TextField("Term name", text: $termName)
             Toggle("First row is a header", isOn: $firstRowIsHeader)
             ForEach(StudentImporter.Field.allCases) { field in
                 Picker(selection: binding(for: field)) {
@@ -97,7 +124,7 @@ struct ImportStudentsView: View {
     }
 
     private var previewSection: some View {
-        Section("Preview: \(preview.count) students") {
+        Section(previewTitle) {
             if preview.isEmpty {
                 Text("No valid rows yet. Check the mapping.").foregroundStyle(.secondary)
             } else {
@@ -113,6 +140,14 @@ struct ImportStudentsView: View {
                 if preview.count > 5 { Text("… and \(preview.count - 5) more").foregroundStyle(.secondary) }
             }
         }
+    }
+
+    private var previewTitle: String {
+        guard let plan else { return "Preview" }
+        var parts = ["\(plan.new) new"]
+        if plan.updated > 0 { parts.append("\(plan.updated) updated") }
+        if plan.unchanged > 0 { parts.append("\(plan.unchanged) unchanged") }
+        return "Preview: " + parts.joined(separator: " · ")
     }
 
     private func columnLabel(_ i: Int) -> String {
@@ -143,21 +178,25 @@ struct ImportStudentsView: View {
             table = try StudentImporter.readTable(url: url)
             mapping = StudentImporter.guessMapping(header: table.first ?? [])
             fileURL = url
-            if termName.isEmpty { termName = url.deletingPathExtension().lastPathComponent }
+            if newGroupName.isEmpty { newGroupName = url.deletingPathExtension().lastPathComponent }
         } catch {
             self.error = error.localizedDescription
         }
     }
 
     private func importNow() {
-        let term = Term(name: termName)
-        context.insert(term)
-        for r in preview {
-            let s = Student(mssv: r.mssv, fullName: r.fullName, className: r.className, projectTitle: r.projectTitle, email: r.email)
-            s.term = term
-            context.insert(s)
+        do {
+            let groupID: Int64
+            if let targetGroupID {
+                groupID = targetGroupID
+                try db.importStudents(preview, into: groupID)
+            } else {
+                groupID = try db.importStudents(preview, intoNewGroupNamed: newGroupName)
+            }
+            onImported(groupID)
+            dismiss()
+        } catch {
+            self.error = error.localizedDescription
         }
-        onImported(term)
-        dismiss()
     }
 }

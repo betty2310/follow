@@ -18,14 +18,14 @@ Import audio file ───────────────┤
                          Session (status: done)
 ```
 
-`SessionProcessor` runs the pipeline for a session. It is an actor, so multiple sessions can process in the background. It updates `Session.status` and stores errors on the session so the user can retry.
+`SessionProcessor.process(sessionId:db:)` runs the pipeline off the main actor. It writes status and results to the DB at each step, and the UI updates through observations. Errors are stored on the session so the user can retry.
 
 ## Layout
 
 ```
 ProjectRecord/
   App/            App entry, AppPaths (storage folder), Settings
-  Models/         SwiftData models: Term, Student, Session (+ Utterance Codable)
+  Database/       AppDatabase (GRDB: schema/migrations, observations, writes) + Records (StudentGroup, Student, Session, Utterance, StudentProgress)
   Engines/
     Transcription/  TranscriptionEngine protocol + providers
     Summarization/  SummarizationEngine protocol + ClaudeCLISummarizer
@@ -35,13 +35,22 @@ ProjectRecordTests/
   Fixtures/       Sample files with fake data (never commit real student data)
 ```
 
-## Models (SwiftData)
+## Database (GRDB / SQLite)
 
-- **Term**: `name`, `createdAt`, `students`
-- **Student**: `mssv`, `fullName`, `className`, `projectTitle`, `email`, `term`, `sessions`
-- **Session**: `date`, `audioFileName` (relative to the storage root), `status`, `errorMessage`, `transcriptEngine`, `utterancesData` (JSON `[Utterance]`), `teacherSpeaker`, `summaryMarkdown`, `student`
+File: `~/Documents/ProjectRecord/ProjectRecord.sqlite`. Open it with any SQLite viewer.
 
-The week is always **derived** from `Session.date` using an ISO-8601 calendar (Monday start). See `WeekCalendar`. It is never stored.
+| Table | Columns |
+|---|---|
+| `studentGroup` | `id`, `name`, `createdAt` |
+| `student` | `id`, `groupId` → studentGroup (cascade), `mssv`, `fullName`, `className`, `projectTitle`, `email`; unique (`groupId`, `mssv`) |
+| `session` | `id`, `studentId` → student (cascade), `date`, `audioPath`, `status`, `errorMessage`, `transcriptEngine`, `utterances` (JSON), `teacherSpeaker`, `summaryMarkdown` |
+
+Rules:
+- **Only `AppDatabase` touches SQL.** Views read with `db.observeX()` inside `.task { for try await … }` and write with `AppDatabase` methods.
+- Schema changes are made by **appending a migration** in `AppDatabase.migrator`. Never edit a shipped migration.
+- Tests use `AppDatabase.inMemory()`.
+- `AppDatabase` is injected with `.environment(\.appDatabase, …)`.
+- The week is always **derived** from `session.date` (ISO, Monday start, see `WeekCalendar`). It is never stored.
 
 ## Engines
 
@@ -71,7 +80,7 @@ To add a provider:
 ## Storage
 
 `~/Documents/ProjectRecord/`
-- `ProjectRecord.store`: the SwiftData store
-- `audio/<term>/<MSSV>/<yyyy-MM-dd_HHmm>.m4a`
+- `ProjectRecord.sqlite`: the GRDB/SQLite database
+- `audio/<group>/<MSSV>/<yyyy-MM-dd_HHmm>.m4a`
 
 API keys are in Keychain (service `ProjectRecord`).

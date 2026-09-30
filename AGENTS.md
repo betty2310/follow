@@ -4,7 +4,7 @@ Guide for AI agents (and humans) working on **ProjectRecord**. Read this first, 
 
 ## What this is
 A personal native macOS app for a teacher who mentors ~30 students on their own projects. Each week every student has a 5–10 min in-person 1:1 session **in Vietnamese**. The app:
-1. imports the term's student list from `.xlsx`,
+1. imports student lists from `.xlsx` into **groups** (folders of students),
 2. records each session (Mac mic → `.m4a`),
 3. transcribes it with a **cloud STT with speaker diarization**,
 4. summarizes it in Vietnamese with **`claude -p`**, inferring which speaker is the teacher,
@@ -26,10 +26,12 @@ make run     # build + open the app
 - Requirements: macOS 26+, Xcode 26+, `brew install xcodegen`.
 
 ## Conventions
-- Swift 6 (strict concurrency), SwiftUI, SwiftData, `@Observable`. Swift Testing (`import Testing`) for tests.
+- Swift 6 (strict concurrency), SwiftUI, **GRDB/SQLite**, `@Observable`. Swift Testing (`import Testing`) for tests.
 - **UI text in English.** Generated content (summaries, prompts) in **Vietnamese**.
 - Engines are pluggable: add providers behind `TranscriptionEngine` / `SummarizationEngine` and register them in `EngineRegistry`. Views and models must not know about specific providers.
 - Put logic in `Services/` or `Engines/` as pure, testable functions (see `StudentImporter.rows(from:)`, `ClaudeCLISummarizer.parse`). Keep views thin.
+- **All DB access goes through `AppDatabase`** (`ProjectRecord/Database/`). Schema changes = a new migration. Records are plain `Sendable` structs.
+- Vocabulary: **Group** = a folder of students; **Project** = a student's own project (`projectTitle`). Don't mix them up.
 - Weeks are **derived** from `Session.date` via `WeekCalendar` (ISO Mon–Sun). Never store a week number.
 - **Never commit real student data** (names, MSSV, emails, recordings). Test fixtures in `ProjectRecordTests/Fixtures/` use fake data.
 - Secrets live in Keychain (`Keychain`, `KeychainKey`). Never commit API keys or put them in `UserDefaults`.

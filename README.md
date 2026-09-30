@@ -2,7 +2,7 @@
 
 A native macOS app for tracking weekly 1:1 project reports from students. It records each session, transcribes the Vietnamese conversation with speaker labels, and writes a Vietnamese summary.
 
-- 📋 Import the term's student list from Excel (`MSSV | Họ tên | Lớp | Tên đề tài | Email`)
+- 📁 Organize students into groups; import each list from Excel with column mapping (names auto-normalized)
 - 🎙️ Record a session per student per week (or import an audio file)
 - 📝 Cloud transcription with diarization (Soniox by default; Gemini and Deepgram are pluggable)
 - ✨ Vietnamese summary via `claude -p`: *Đã làm được / Vấn đề gặp phải / Kế hoạch tuần tới / Góp ý & việc giao*
@@ -20,7 +20,7 @@ make run
 ```
 Then open **Settings** (⌘,): paste your STT API key and check the `claude` path (default `~/.local/bin/claude`).
 
-Data is stored in `~/Documents/ProjectRecord/` (database + audio).
+Data is stored in `~/Documents/ProjectRecord/`: `ProjectRecord.sqlite` plus `audio/`.
 
 ## Docs
 - [AGENTS.md](AGENTS.md): contributor/agent guide

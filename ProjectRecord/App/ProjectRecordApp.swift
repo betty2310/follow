@@ -1,14 +1,12 @@
-import SwiftData
 import SwiftUI
 
 @main
 struct ProjectRecordApp: App {
-    let container: ModelContainer = {
-        let config = ModelConfiguration(url: AppPaths.store)
+    let database: AppDatabase = {
         do {
-            return try ModelContainer(for: Term.self, Student.self, Session.self, configurations: config)
+            return try AppDatabase.onDisk(at: AppPaths.database)
         } catch {
-            fatalError("Failed to open store at \(AppPaths.store.path): \(error)")
+            fatalError("Failed to open database at \(AppPaths.database.path): \(error)")
         }
     }()
 
@@ -16,7 +14,7 @@ struct ProjectRecordApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(container)
+        .environment(\.appDatabase, database)
 
         Settings {
             SettingsView()

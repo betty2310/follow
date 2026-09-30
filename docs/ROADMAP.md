@@ -4,11 +4,14 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 
 ## M0: Bootstrap
 - [x] Design interview, decisions (`docs/DECISIONS.md`)
-- [x] XcodeGen project, SwiftData models, engine protocols, app shell that builds
+- [x] XcodeGen project, engine protocols, app shell that builds
+- [x] GRDB/SQLite database layer with migrations (`AppDatabase`)
+- [x] Penguin emoji app icon with standard macOS sizes and asset catalog configuration
 
-## M1: Students
-- [x] Import sheet: instructions, column mapping (auto-guess + manual), preview → new Term + Students (`ImportStudentsView`, `StudentImporter`)
-- [x] Sidebar: search, Dashboard, Settings, term picker, student list
+## M1: Groups & students
+- [x] Import sheet: instructions, column mapping (auto-guess + manual), target group (existing/new), new/updated preview, name normalization (`ImportStudentsView`, `StudentImporter`)
+- [x] Sidebar: search, Dashboard, Settings, group picker, student list
+- [ ] Rename / delete group; edit a student's details
 
 ## M2: Recording
 - [~] Record / stop with the Mac microphone → `.m4a` (`AudioRecorder`)
@@ -32,7 +35,6 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 - [ ] Student timeline: weekly summaries, newest first; previous week shown while recording
 
 ## Later / out of scope for v1
-- Excel re-import / merge by MSSV
 - Export (Markdown / PDF / Excel)
 - Better speaker classification (voice enrollment of the teacher)
 - Local/offline engines
