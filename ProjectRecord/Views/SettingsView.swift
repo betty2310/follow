@@ -25,7 +25,9 @@ struct SettingsView: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 480)
+        .frame(minWidth: 480, maxWidth: 640)
+        .frame(maxWidth: .infinity)
+        .navigationTitle("Settings")
         .onAppear {
             for key in KeychainKey.allCases { keys[key] = Keychain.get(key) }
         }

@@ -29,6 +29,7 @@ Settled during the initial design interview (2026-09-30). Change these only with
 | D14 | Storage | Visible folder `~/Documents/ProjectRecord/`: SwiftData store + audio at `<term>/<MSSV>/<yyyy-MM-dd_HHmm>.m4a`. API keys in **Keychain**. |
 | D15 | Export | **Not in v1.** |
 | D16 | Name | **ProjectRecord**. |
+| D17 | Layout (2026-09-30) | Single window, `NavigationSplitView`. Sidebar: **search box** on top → **Dashboard** → **Settings** → **students** of the selected term (term picker in the section header). Detail pane shows the selected item. Settings is also available via ⌘,. |
 
 ## Summary template (Vietnamese)
 

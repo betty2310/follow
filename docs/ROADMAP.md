@@ -8,7 +8,7 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 
 ## M1: Students
 - [~] Import `.xlsx` → new Term + Students (`StudentImporter`; needs real-file testing)
-- [ ] Term picker in sidebar; student list with search
+- [x] Sidebar: search, Dashboard, Settings, term picker, student list
 
 ## M2: Recording
 - [~] Record / stop with the Mac microphone → `.m4a` (`AudioRecorder`)
@@ -28,7 +28,7 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 - [ ] Editable summary (markdown); re-run button
 
 ## M5: Progress
-- [ ] Students × weeks grid (reported / not reported)
+- [~] Dashboard: this-week stats, not-reported list, students × last 8 weeks grid (`DashboardView`)
 - [ ] Student timeline: weekly summaries, newest first; previous week shown while recording
 
 ## Later / out of scope for v1

@@ -30,7 +30,7 @@ ProjectRecord/
     Transcription/  TranscriptionEngine protocol + providers
     Summarization/  SummarizationEngine protocol + ClaudeCLISummarizer
   Services/       AudioRecorder, SessionProcessor, StudentImporter (xlsx), Keychain, WeekCalendar
-  Views/          SwiftUI views
+  Views/          SwiftUI views: ContentView (sidebar + SidebarItem routing), DashboardView, StudentDetailView, SettingsView
 ProjectRecordTests/
 ```
 
