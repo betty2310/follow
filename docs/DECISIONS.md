@@ -22,7 +22,7 @@ Settled during the initial design interview (2026-09-30). Change these only with
 | D7 | Summarization | Shell out to **`claude -p`** (Claude Code CLI, the owner's subscription) with model **Sonnet**. CLI path + model configurable in Settings. |
 | D8 | Speaker roles | STT returns anonymous speakers (A/B). The summarizer **infers Teacher vs Student from context**. The UI has a **swap** button to fix mistakes. Better classification (e.g. voice enrollment) is future work. |
 | D9 | Summary format | Free-form Vietnamese markdown using a fixed template (below). **Editable**. The labeled transcript is kept next to it. **No** structured action items or checklists: the teacher reads last week's summary before the next session. |
-| D10 | Students | Imported from an **Excel (.xlsx)** file **once per term**. Columns: `MSSV \| Họ tên \| Lớp \| Tên đề tài \| Email` (MSSV + Họ tên required). Each import creates a **Term**; old terms stay browsable. Re-import/merge is later work. |
+| D10 | Students | Imported from an **Excel (.xlsx)** file **once per term**. Fields: Student ID (MSSV) + Full name **required**; Class, Project title, Email optional. Real-world example header (HUST): `Mã số SV/HV \| Họ tên SV/HV \| Email`. Each import creates a **Term**; old terms stay browsable. Re-import/merge is later work. |
 | D11 | Weeks | **Calendar weeks (Mon–Sun)**. Multiple sessions in the same week are allowed. |
 | D12 | Recording | Pick a student → Record → Stop → processing runs in the background (the teacher can record the next student). Audio kept locally as `.m4a`. Also: **import an audio file** and **re-run** processing. |
 | D13 | Progress tracking | Keep it simple: a **students × weeks grid** showing who reported, plus a per-student **timeline** of weekly summaries. |
@@ -30,6 +30,8 @@ Settled during the initial design interview (2026-09-30). Change these only with
 | D15 | Export | **Not in v1.** |
 | D16 | Name | **ProjectRecord**. |
 | D17 | Layout (2026-09-30) | Single window, `NavigationSplitView`. Sidebar: **search box** on top → **Dashboard** → **Settings** → **students** of the selected term (term picker in the section header). Detail pane shows the selected item. Settings is also available via ⌘,. |
+
+| D18 | Import UX (2026-09-30) | Import is a sheet: it shows **instructions** (required and optional fields), then after the file is picked, **column mapping** (one picker per field, auto-guessed from headers by exact then partial match), a *first row is header* toggle, the term name, and a **preview**. Import is enabled only when the required fields are mapped. First worksheet only. |
 
 ## Summary template (Vietnamese)
 

@@ -7,7 +7,7 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 - [x] XcodeGen project, SwiftData models, engine protocols, app shell that builds
 
 ## M1: Students
-- [~] Import `.xlsx` → new Term + Students (`StudentImporter`; needs real-file testing)
+- [x] Import sheet: instructions, column mapping (auto-guess + manual), preview → new Term + Students (`ImportStudentsView`, `StudentImporter`)
 - [x] Sidebar: search, Dashboard, Settings, term picker, student list
 
 ## M2: Recording

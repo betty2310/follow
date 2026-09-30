@@ -1,10 +1,41 @@
 import CoreXLSX
 import Foundation
 
-/// Parses the per-term student list (.xlsx). Expected headers (docs/DECISIONS.md D10):
-/// `MSSV | Họ tên | Lớp | Tên đề tài | Email`. MSSV and Họ tên are required; header matching is
-/// case-, accent- and whitespace-insensitive, so small variations still work.
+/// Reads the per-term student list (.xlsx) and maps its columns to student fields (docs/DECISIONS.md D10, D18).
+/// Flow: `readTable` → `guessMapping` (auto-match headers) → user adjusts in `ImportStudentsView` → `rows(from:mapping:)`.
 enum StudentImporter {
+    /// Student fields a column can be mapped to. `mssv` and `fullName` are required.
+    enum Field: String, CaseIterable, Identifiable, Sendable {
+        case mssv, fullName, className, projectTitle, email
+        var id: Self { self }
+
+        var title: String {
+            switch self {
+            case .mssv: "Student ID (MSSV)"
+            case .fullName: "Full name (Họ tên)"
+            case .className: "Class (Lớp)"
+            case .projectTitle: "Project title (Tên đề tài)"
+            case .email: "Email"
+            }
+        }
+
+        var isRequired: Bool { self == .mssv || self == .fullName }
+
+        /// Header names auto-matched to this field (compared after `normalize`).
+        var aliases: [String] {
+            switch self {
+            case .mssv: ["MSSV", "MSHV", "Mã số sinh viên", "Mã số SV", "Mã SV", "Mã số", "Student ID", "ID"]
+            case .fullName: ["Họ tên", "Họ và tên", "Tên sinh viên", "Full name", "Name"]
+            case .className: ["Lớp", "Class"]
+            case .projectTitle: ["Tên đề tài", "Đề tài", "Dự án", "Project", "Project title"]
+            case .email: ["Email", "E-mail"]
+            }
+        }
+    }
+
+    /// Field → column index in the table.
+    typealias Mapping = [Field: Int]
+
     struct Row: Equatable, Sendable {
         var mssv, fullName, className, projectTitle, email: String
     }
@@ -20,13 +51,14 @@ enum StudentImporter {
         }
     }
 
-    static func parse(url: URL) throws -> [Row] {
+    /// Reads the first worksheet into a rectangular-ish table of trimmed strings.
+    static func readTable(url: URL) throws -> [[String]] {
         guard let file = XLSXFile(filepath: url.path),
               let path = try file.parseWorksheetPaths().first
         else { throw Failure.unreadable }
         let sheet = try file.parseWorksheet(at: path)
         let strings = try file.parseSharedStrings()
-        let table: [[String]] = (sheet.data?.rows ?? []).map { row in
+        return (sheet.data?.rows ?? []).map { row in
             var values: [String] = []
             for cell in row.cells {
                 let col = columnIndex(cell.reference.column.value)
@@ -36,28 +68,45 @@ enum StudentImporter {
             }
             return values
         }
-        return try rows(from: table)
+        .filter { $0.contains { !$0.isEmpty } }
     }
 
-    /// Maps a raw table (first row = header) to student rows. Separated from `parse` for testing.
-    static func rows(from table: [[String]]) throws -> [Row] {
-        guard let header = table.first else { return [] }
+    /// Auto-matches header cells to fields. Each column is used at most once.
+    /// Pass 1: exact match on an alias. Pass 2: header *contains* an alias (≥ 4 chars), so real headers
+    /// like "Mã số SV/HV" or "Họ tên SV/HV" still match.
+    static func guessMapping(header: [String]) -> Mapping {
         let keys = header.map(normalize)
-        func idx(_ names: String...) -> Int? { keys.firstIndex { names.map(normalize).contains($0) } }
+        var mapping: Mapping = [:]
+        let matchers: [(String, String) -> Bool] = [
+            { key, alias in key == alias },
+            { key, alias in alias.count >= 4 && key.contains(alias) },
+        ]
+        for matches in matchers {
+            for field in Field.allCases where mapping[field] == nil {
+                let aliases = field.aliases.map(normalize)
+                if let i = keys.indices.first(where: { i in
+                    !mapping.values.contains(i) && aliases.contains { matches(keys[i], $0) }
+                }) {
+                    mapping[field] = i
+                }
+            }
+        }
+        return mapping
+    }
 
-        let iMSSV = idx("MSSV", "Mã số sinh viên", "Student ID")
-        let iName = idx("Họ tên", "Họ và tên", "Full name", "Name")
-        var missing: [String] = []
-        if iMSSV == nil { missing.append("MSSV") }
-        if iName == nil { missing.append("Họ tên") }
-        guard let iMSSV, let iName else { throw Failure.missingColumns(missing) }
-        let iClass = idx("Lớp", "Class"), iTitle = idx("Tên đề tài", "Đề tài", "Project"), iEmail = idx("Email")
+    static func missingRequired(_ mapping: Mapping) -> [Field] {
+        Field.allCases.filter { $0.isRequired && mapping[$0] == nil }
+    }
 
-        return table.dropFirst().compactMap { r in
-            func at(_ i: Int?) -> String { i.flatMap { $0 < r.count ? r[$0] : nil } ?? "" }
-            let mssv = at(iMSSV), name = at(iName)
+    /// Maps table rows to students. Rows without MSSV or name are skipped.
+    static func rows(from table: [[String]], mapping: Mapping, firstRowIsHeader: Bool = true) throws -> [Row] {
+        let missing = missingRequired(mapping)
+        guard missing.isEmpty else { throw Failure.missingColumns(missing.map(\.title)) }
+        return table.dropFirst(firstRowIsHeader ? 1 : 0).compactMap { r in
+            func at(_ f: Field) -> String { mapping[f].flatMap { $0 < r.count ? r[$0] : nil } ?? "" }
+            let mssv = at(.mssv), name = at(.fullName)
             guard !mssv.isEmpty, !name.isEmpty else { return nil }
-            return Row(mssv: mssv, fullName: name, className: at(iClass), projectTitle: at(iTitle), email: at(iEmail))
+            return Row(mssv: mssv, fullName: name, className: at(.className), projectTitle: at(.projectTitle), email: at(.email))
         }
     }
 
@@ -68,7 +117,14 @@ enum StudentImporter {
     }
 
     /// "A" → 0, "Z" → 25, "AA" → 26
-    private static func columnIndex(_ letters: String) -> Int {
+    static func columnIndex(_ letters: String) -> Int {
         letters.uppercased().unicodeScalars.reduce(0) { $0 * 26 + Int($1.value) - 64 } - 1
+    }
+
+    /// 0 → "A", 26 → "AA"
+    static func columnLetter(_ index: Int) -> String {
+        var n = index + 1, s = ""
+        while n > 0 { n -= 1; s = String(UnicodeScalar(65 + n % 26)!) + s; n /= 26 }
+        return s
     }
 }

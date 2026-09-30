@@ -3,23 +3,56 @@ import Testing
 @testable import ProjectRecord
 
 struct StudentImporterTests {
-    @Test func mapsVietnameseHeaders() throws {
+    @Test func guessesMappingFromVietnameseHeaders() {
+        let mapping = StudentImporter.guessMapping(header: ["STT", "Họ và tên", "MSSV", "Lớp", "Tên đề tài", "Email"])
+        #expect(mapping == [.fullName: 1, .mssv: 2, .className: 3, .projectTitle: 4, .email: 5])
+    }
+
+    @Test func headerMatchingIgnoresCaseAndAccents() {
+        let mapping = StudentImporter.guessMapping(header: ["mssv", "HO TEN"])
+        #expect(mapping == [.mssv: 0, .fullName: 1])
+    }
+
+    @Test func unknownHeadersLeaveFieldsUnmapped() {
+        let mapping = StudentImporter.guessMapping(header: ["Code", "Student", "Group"])
+        #expect(StudentImporter.missingRequired(mapping) == [.mssv, .fullName])
+    }
+
+    @Test func mapsRowsWithManualMappingAndSkipsIncompleteRows() throws {
         let table = [
-            ["MSSV", "Họ và tên", "Lớp", "Tên đề tài", "Email"],
-            ["2110001", "Nguyễn Văn A", "CS01", "Chat app", "a@example.com"],
-            ["", "Missing ID", "", "", ""],
+            ["Code", "Student", "Topic"],
+            ["2110001", "Nguyễn Văn A", "Chat app"],
+            ["", "Missing ID", ""],
         ]
-        let rows = try StudentImporter.rows(from: table)
-        #expect(rows == [.init(mssv: "2110001", fullName: "Nguyễn Văn A", className: "CS01", projectTitle: "Chat app", email: "a@example.com")])
+        let rows = try StudentImporter.rows(from: table, mapping: [.mssv: 0, .fullName: 1, .projectTitle: 2])
+        #expect(rows == [.init(mssv: "2110001", fullName: "Nguyễn Văn A", className: "", projectTitle: "Chat app", email: "")])
     }
 
-    @Test func headerMatchingIgnoresCaseAndAccents() throws {
-        let rows = try StudentImporter.rows(from: [["mssv", "HO TEN"], ["1", "B"]])
-        #expect(rows.first?.fullName == "B")
+    @Test func noHeaderRowKeepsFirstRow() throws {
+        let rows = try StudentImporter.rows(from: [["1", "A"], ["2", "B"]], mapping: [.mssv: 0, .fullName: 1], firstRowIsHeader: false)
+        #expect(rows.map(\.mssv) == ["1", "2"])
     }
 
-    @Test func missingRequiredColumnThrows() {
-        #expect(throws: StudentImporter.Failure.self) { try StudentImporter.rows(from: [["Email"]]) }
+    @Test func missingRequiredMappingThrows() {
+        #expect(throws: StudentImporter.Failure.self) { try StudentImporter.rows(from: [["x"]], mapping: [.mssv: 0]) }
+    }
+
+    /// Same headers as the real HUST list: "Mã số SV/HV | Họ tên SV/HV | Email" (fake data).
+    @Test func importsRealWorldHeaderFormatFromXLSX() throws {
+        let url = URL(filePath: #filePath).deletingLastPathComponent().appending(path: "Fixtures/students-sample.xlsx")
+        let table = try StudentImporter.readTable(url: url)
+        let mapping = StudentImporter.guessMapping(header: table[0])
+        #expect(mapping == [.mssv: 0, .fullName: 1, .email: 2])
+        let rows = try StudentImporter.rows(from: table, mapping: mapping)
+        #expect(rows.map(\.mssv) == ["20230001", "202400002"])
+        #expect(rows[1].fullName == "TRẦN THỊ MẪU")
+    }
+
+    @Test func columnLettersRoundTrip() {
+        for i in [0, 25, 26, 51, 701, 702] {
+            #expect(StudentImporter.columnIndex(StudentImporter.columnLetter(i)) == i)
+        }
+        #expect(StudentImporter.columnLetter(26) == "AA")
     }
 }
 

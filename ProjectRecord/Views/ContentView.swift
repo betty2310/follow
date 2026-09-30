@@ -1,6 +1,5 @@
 import SwiftData
 import SwiftUI
-import UniformTypeIdentifiers
 
 /// Sidebar-driven layout: search on top, Dashboard + Settings, then the students of the selected term.
 enum SidebarItem: Hashable {
@@ -16,7 +15,6 @@ struct ContentView: View {
     @State private var selection: SidebarItem? = .dashboard
     @State private var search = ""
     @State private var importing = false
-    @State private var importError: String?
 
     private var term: Term? { terms.first { $0.persistentModelID == selectedTermID } ?? terms.first }
 
@@ -53,12 +51,12 @@ struct ContentView: View {
         } detail: {
             detail
         }
-        .fileImporter(isPresented: $importing, allowedContentTypes: [UTType(filenameExtension: "xlsx")!]) { result in
-            importStudents(result)
+        .sheet(isPresented: $importing) {
+            ImportStudentsView { term in
+                selectedTermID = term.persistentModelID
+                selection = .dashboard
+            }
         }
-        .alert("Import failed", isPresented: .constant(importError != nil)) {
-            Button("OK") { importError = nil }
-        } message: { Text(importError ?? "") }
     }
 
     @ViewBuilder private var termHeader: some View {
@@ -85,24 +83,6 @@ struct ContentView: View {
             } else {
                 ContentUnavailableView("Select a student", systemImage: "person.crop.circle")
             }
-        }
-    }
-
-    private func importStudents(_ result: Result<URL, Error>) {
-        do {
-            let url = try result.get()
-            let rows = try StudentImporter.parse(url: url)
-            let term = Term(name: url.deletingPathExtension().lastPathComponent)
-            context.insert(term)
-            for r in rows {
-                let s = Student(mssv: r.mssv, fullName: r.fullName, className: r.className, projectTitle: r.projectTitle, email: r.email)
-                s.term = term
-                context.insert(s)
-            }
-            selectedTermID = term.persistentModelID
-            selection = .dashboard
-        } catch {
-            importError = error.localizedDescription
         }
     }
 }
