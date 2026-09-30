@@ -36,6 +36,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.betty.ProjectRecord
         GENERATE_INFOPLIST_FILE: NO
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon  # ProjectRecord/Resources/Assets.xcassets/AppIcon.appiconset
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
   ProjectRecordTests:
     type: bundle.unit-test
