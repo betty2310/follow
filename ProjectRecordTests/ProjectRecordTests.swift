@@ -122,6 +122,29 @@ struct AppDatabaseTests {
     }
 }
 
+struct TimestampStorageTests {
+    @Test func datesAreStoredAsLocalTimeWithOffsetNotEpochOrUTC() throws {
+        let db = try AppDatabase.inMemory()
+        let g = try db.importStudents([.init(mssv: "1", fullName: "An", className: "", projectTitle: "", email: "")],
+                                      intoNewGroupNamed: "A")
+        let date = Date(timeIntervalSince1970: 1_790_000_000.25)
+        let s = try db.insertSession(Session(studentId: db.progress(groupId: g)[0].id, date: date, audioPath: "a.m4a"))
+
+        let stored = try db.writer.read { try String.fetchOne($0, sql: "SELECT date FROM session WHERE id = ?", arguments: [s.id!]) }
+        #expect(stored == DBTimestamp.string(date))
+        #expect(stored?.wholeMatch(of: /\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d{3}[+-]\d{2}:\d{2}|.*Z/) != nil)
+
+        let loaded = try #require(try db.session(id: s.id!))
+        #expect(abs(loaded.date.timeIntervalSince(date)) < 0.001)
+        #expect(try db.progress(groupId: g)[0].sessionDates.count == 1)
+    }
+
+    @Test func utteranceTimesAreSecondsInJSON() throws {
+        let json = try JSONEncoder().encode(Utterance(speaker: "A", text: "x", start: 12.5, end: 14))
+        #expect(String(decoding: json, as: UTF8.self).contains("\"start\":12.5"))
+    }
+}
+
 struct ClaudeCLISummarizerTests {
     @Test func parsesEnvelopeWithFencedJSON() throws {
         let inner = "```json\n{\"teacher_speaker\": \"B\", \"summary_markdown\": \"## Đã làm được\\n- X\"}\n```"

@@ -59,6 +59,17 @@ struct AppDatabase: Sendable {
                 t.column("summaryMarkdown", .text)
             }
         }
+        migrator.registerMigration("v2-local-timestamps") { db in
+            // v1 stored GRDB's default UTC text ("2026-09-30 03:37:39.175"). Rewrite as local time + offset (D22).
+            for (table, column) in [("studentGroup", "createdAt"), ("session", "date")] {
+                let rows = try Row.fetchAll(db, sql: "SELECT id, \(column) AS value FROM \(table)")
+                for row in rows {
+                    let old: Date = row["value"]
+                    try db.execute(sql: "UPDATE \(table) SET \(column) = ? WHERE id = ?",
+                                   arguments: [DBTimestamp.string(old), row["id"] as Int64])
+                }
+            }
+        }
         return migrator
     }
 }
@@ -107,7 +118,10 @@ extension AppDatabase {
             WHERE student.groupId = ?
             """, arguments: [groupId])
         var dates: [Int64: [Date]] = [:]
-        for row in rows { dates[row["studentId"], default: []].append(row["date"]) }
+        for row in rows {
+            guard let date = DBTimestamp.date(row["date"]) else { continue }
+            dates[row["studentId"], default: []].append(date)
+        }
         return students.map { StudentProgress(student: $0, sessionDates: dates[$0.id!] ?? []) }
     }
 }

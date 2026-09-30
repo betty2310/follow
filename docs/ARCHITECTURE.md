@@ -48,6 +48,7 @@ File: `~/Documents/ProjectRecord/ProjectRecord.sqlite`. Open it with any SQLite 
 Rules:
 - **Only `AppDatabase` touches SQL.** Views read with `db.observeX()` inside `.task { for try await … }` and write with `AppDatabase` methods.
 - Schema changes are made by **appending a migration** in `AppDatabase.migrator`. Never edit a shipped migration.
+- Dates are stored as local time with offset (`2026-09-30 10:37:39.175+07:00`) through `DBTimestamp` / `LocalTimestampRecord`. A record with a `Date` must adopt `LocalTimestampRecord`, and raw SQL must parse dates with `DBTimestamp.date`. Utterance times are seconds.
 - Tests use `AppDatabase.inMemory()`.
 - `AppDatabase` is injected with `.environment(\.appDatabase, …)`.
 - The week is always **derived** from `session.date` (ISO, Monday start, see `WeekCalendar`). It is never stored.

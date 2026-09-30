@@ -3,9 +3,37 @@ import GRDB
 
 // Plain value types persisted with GRDB. Schema lives in AppDatabase.migrator; keep both in sync.
 
+/// How dates are stored in SQLite (docs/DECISIONS.md D22): readable **local time with UTC offset**,
+/// e.g. `2026-09-30 10:37:39.175+07:00`. Never epoch numbers, never bare UTC.
+/// Records with `Date` properties must adopt `LocalTimestampRecord`.
+enum DBTimestamp {
+    static let formatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.calendar = Calendar(identifier: .gregorian)
+        f.timeZone = .current
+        f.dateFormat = "yyyy-MM-dd HH:mm:ss.SSSXXXXX"
+        return f
+    }()
+
+    static func string(_ date: Date) -> String { formatter.string(from: date) }
+    static func date(_ string: String) -> Date? { formatter.date(from: string) }
+}
+
+protocol LocalTimestampRecord: FetchableRecord, EncodableRecord {}
+
+extension LocalTimestampRecord {
+    static func databaseDateEncodingStrategy(for column: String) -> DatabaseDateEncodingStrategy {
+        .formatted(DBTimestamp.formatter)
+    }
+    static func databaseDateDecodingStrategy(for column: String) -> DatabaseDateDecodingStrategy {
+        .formatted(DBTimestamp.formatter)
+    }
+}
+
 /// A folder of students the teacher organizes together (e.g. "Đồ án 1 – 2025.1").
 /// Not to be confused with `Student.projectTitle`, which is the student's own project.
-struct StudentGroup: Codable, Hashable, Identifiable, Sendable, FetchableRecord, MutablePersistableRecord {
+struct StudentGroup: Codable, Hashable, Identifiable, Sendable, MutablePersistableRecord, LocalTimestampRecord {
     var id: Int64?
     var name: String
     var createdAt: Date
@@ -49,7 +77,7 @@ enum SessionStatus: String, Codable, Sendable {
     case recording, recorded, transcribing, summarizing, done, failed
 }
 
-struct Session: Codable, Hashable, Identifiable, Sendable, FetchableRecord, MutablePersistableRecord {
+struct Session: Codable, Hashable, Identifiable, Sendable, MutablePersistableRecord, LocalTimestampRecord {
     var id: Int64?
     var studentId: Int64
     var date: Date
@@ -76,7 +104,9 @@ struct Session: Codable, Hashable, Identifiable, Sendable, FetchableRecord, Muta
 struct Utterance: Codable, Hashable, Sendable {
     var speaker: String   // "A", "B", ...
     var text: String
+    /// Seconds from the start of the recording.
     var start: TimeInterval
+    /// Seconds from the start of the recording.
     var end: TimeInterval
 }
 

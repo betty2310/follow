@@ -35,6 +35,7 @@ Settled during the initial design interview (2026-09-30). Change these only with
 | D19 | Database (2026-09-30) | **GRDB over SQLite** replaces SwiftData. All DB access goes through `AppDatabase` (schema via versioned migrations, reads via `ValueObservation`, writes via methods). Records are plain structs. |
 | D20 | Groups (2026-09-30) | Data model is **Group → Students → Sessions**. A *group* is a folder of students the teacher organizes (replaces "Term"). *Project* always means the **student's own project** (`projectTitle`). Import targets an existing or new group; into an existing group it **adds new MSSVs and updates existing ones, never deletes**. Same MSSV in two groups = two separate students. |
 | D21 | Name normalization (2026-09-30) | On import only: Unicode NFC, trim, collapse spaces, capitalize the first letter of each word (`NGUYỄN HÀ ANH` → `Nguyễn Hà Anh`). MSSV is trimmed; email is trimmed and lowercased. |
+| D22 | Time format (2026-09-30) | Dates in SQLite are readable **local time with UTC offset**: `2026-09-30 10:37:39.175+07:00` (`DBTimestamp`). **No epoch numbers, no bare UTC.** Durations and offsets inside a recording (utterance `start`/`end`) are **seconds** (`12.5`). |
 
 ## Summary template (Vietnamese)
 

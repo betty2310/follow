@@ -11,7 +11,7 @@ A personal native macOS app for a teacher who mentors ~30 students on their own 
 5. shows who has reported each week, plus a per-student timeline of summaries.
 
 ## Must-read docs
-- `docs/DECISIONS.md`: settled product/tech decisions (D1–D21), summary template, STT research. **Don't re-open these without asking the owner.**
+- `docs/DECISIONS.md`: settled product/tech decisions (D1–D22), summary template, STT research. **Don't re-open these without asking the owner.**
 - `docs/ARCHITECTURE.md`: pipeline, layout, models, engine protocols, storage.
 - `docs/ROADMAP.md`: milestones and status. **Update checkboxes when you finish work.**
 
@@ -31,6 +31,7 @@ make run     # build + open the app
 - Engines are pluggable: add providers behind `TranscriptionEngine` / `SummarizationEngine` and register them in `EngineRegistry`. Views and models must not know about specific providers.
 - Put logic in `Services/` or `Engines/` as pure, testable functions (see `StudentImporter.rows(from:)`, `ClaudeCLISummarizer.parse`). Keep views thin.
 - **All DB access goes through `AppDatabase`** (`ProjectRecord/Database/`). Schema changes = a new migration. Records are plain `Sendable` structs.
+- **Time format:** dates are readable local time with offset (`2026-09-30 10:37:39.175+07:00`, via `DBTimestamp`), and in-recording times are seconds. **Never epoch, never bare UTC.**
 - Vocabulary: **Group** = a folder of students; **Project** = a student's own project (`projectTitle`). Don't mix them up.
 - Weeks are **derived** from `Session.date` via `WeekCalendar` (ISO Mon–Sun). Never store a week number.
 - **Never commit real student data** (names, MSSV, emails, recordings). Test fixtures in `ProjectRecordTests/Fixtures/` use fake data.
