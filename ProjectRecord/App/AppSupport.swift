@@ -21,6 +21,13 @@ enum AppPaths {
         root.appending(path: relativePath)
     }
 
+    /// Moves recordings to the Trash (recoverable) after their sessions were deleted. Missing files are skipped.
+    static func trashAudio(_ relativePaths: [String]) {
+        for path in relativePaths {
+            try? FileManager.default.trashItem(at: absolute(path), resultingItemURL: nil)
+        }
+    }
+
     private static func sanitize(_ s: String) -> String {
         s.components(separatedBy: CharacterSet(charactersIn: "/:\\")).joined(separator: "-")
     }

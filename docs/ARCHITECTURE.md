@@ -25,12 +25,12 @@ Import audio file ───────────────┤
 ```
 ProjectRecord/
   App/            App entry, AppPaths (storage folder), Settings
-  Database/       AppDatabase (GRDB: schema/migrations, observations, writes) + Records (StudentGroup, Student, Session, Utterance, StudentProgress)
+  Database/       AppDatabase (GRDB: schema/migrations, observations, writes) + Records (StudentGroup, GroupProgress, Student, Session, Utterance, StudentProgress)
   Engines/
     Transcription/  TranscriptionEngine protocol + providers
     Summarization/  SummarizationEngine protocol + ClaudeCLISummarizer
   Services/       AudioRecorder, SessionProcessor, StudentImporter (xlsx), Keychain, WeekCalendar
-  Views/          SwiftUI views: ContentView (sidebar + SidebarItem routing), DashboardView, ImportStudentsView, StudentDetailView, SettingsView
+  Views/          SwiftUI views: ContentView (sidebar + SidebarItem routing), DashboardView (report calendar), ImportStudentsView, StudentDetailView (SessionCalendarView + SessionDetailView), CalendarView (shared Week/Month calendar), SettingsView (⌘, window)
 ProjectRecordTests/
   Fixtures/       Sample files with fake data (never commit real student data)
 ```
@@ -41,7 +41,7 @@ File: `~/Documents/ProjectRecord/ProjectRecord.sqlite`. Open it with any SQLite 
 
 | Table | Columns |
 |---|---|
-| `studentGroup` | `id`, `name`, `createdAt` |
+| `studentGroup` | `id`, `name`, `createdAt`, `archivedAt` (null = active) |
 | `student` | `id`, `groupId` → studentGroup (cascade), `mssv`, `fullName`, `className`, `projectTitle`, `email`; unique (`groupId`, `mssv`) |
 | `session` | `id`, `studentId` → student (cascade), `date`, `audioPath`, `status`, `errorMessage`, `transcriptEngine`, `utterances` (JSON), `teacherSpeaker`, `summaryMarkdown` |
 

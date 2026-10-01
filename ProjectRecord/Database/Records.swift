@@ -37,21 +37,34 @@ struct StudentGroup: Codable, Hashable, Identifiable, Sendable, MutablePersistab
     var id: Int64?
     var name: String
     var createdAt: Date
+    /// Set when the teacher archives the group: it moves to the sidebar's Archived section. Nothing is deleted.
+    var archivedAt: Date?
 
     static let databaseTableName = "studentGroup"
 
-    init(id: Int64? = nil, name: String, createdAt: Date = .now) {
+    init(id: Int64? = nil, name: String, createdAt: Date = .now, archivedAt: Date? = nil) {
         self.id = id
         self.name = name
         self.createdAt = createdAt
+        self.archivedAt = archivedAt
     }
+
+    var isArchived: Bool { archivedAt != nil }
 
     mutating func didInsert(_ inserted: InsertionSuccess) { id = inserted.rowID }
 
     enum Columns {
         static let name = Column(CodingKeys.name)
         static let createdAt = Column(CodingKeys.createdAt)
+        static let archivedAt = Column(CodingKeys.archivedAt)
     }
+}
+
+/// A group with its students' progress: one sidebar section.
+struct GroupProgress: Hashable, Identifiable, Sendable {
+    var group: StudentGroup
+    var students: [StudentProgress]
+    var id: Int64 { group.id! }
 }
 
 struct Student: Codable, Hashable, Identifiable, Sendable, FetchableRecord, MutablePersistableRecord {
@@ -97,6 +110,29 @@ struct Session: Codable, Hashable, Identifiable, Sendable, MutablePersistableRec
     enum Columns {
         static let studentId = Column(CodingKeys.studentId)
         static let date = Column(CodingKeys.date)
+    }
+}
+
+extension Session {
+    /// Diarized speaker labels in order of first appearance ("A", "B", …).
+    var speakers: [String] {
+        var seen: [String] = []
+        for u in utterances where !seen.contains(u.speaker) { seen.append(u.speaker) }
+        return seen
+    }
+
+    /// "Teacher" / "Student" once the teacher is known, otherwise the raw label ("Speaker A").
+    func roleName(of speaker: String) -> String {
+        guard let teacherSpeaker else { return "Speaker \(speaker)" }
+        return speaker == teacherSpeaker ? "Teacher" : "Student"
+    }
+
+    /// The label the teacher becomes after pressing Swap: the next speaker after the current teacher.
+    var swappedTeacherSpeaker: String? {
+        let all = speakers
+        guard all.count > 1 else { return nil }
+        guard let teacherSpeaker, let i = all.firstIndex(of: teacherSpeaker) else { return all[0] }
+        return all[(i + 1) % all.count]
     }
 }
 

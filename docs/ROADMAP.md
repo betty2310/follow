@@ -10,16 +10,18 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 
 ## M1: Groups & students
 - [x] Import sheet: instructions, column mapping (auto-guess + manual), target group (existing/new), new/updated preview, name normalization (`ImportStudentsView`, `StudentImporter`)
-- [x] Sidebar: search, Dashboard, Settings, group picker, student list
-- [ ] Rename / delete group; edit a student's details
+- [x] Sidebar: search, every group as a collapsible row with its students (folder icon, double-click toggles), group dashboard (D26)
+- [x] Group management: new, rename, archive/unarchive, delete with confirmation (right-click menu), hide/show students (D25)
+- [ ] Edit a student's details
 
 ## M2: Recording
 - [~] Record / stop with the Mac microphone → `.m4a` (`AudioRecorder`)
 - [ ] Recording UI: timer and level meter; record the next student while others process
 - [ ] Import an existing audio file into a session
+- [x] Session card: Show in Finder button; Re-run also for sessions stuck in `recorded`
 
 ## M3: Transcription
-- [ ] `SonioxEngine` (default): upload → create transcription → poll → map tokens to utterances
+- [x] `SonioxEngine` (default, `stt-async-v5`): upload → create transcription → poll → map tokens to utterances → delete remote file/transcription
 - [ ] `GeminiTranscribeEngine`
 - [ ] `DeepgramEngine`
 - [ ] Settings: API keys (Keychain), default engine
@@ -27,12 +29,14 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 
 ## M4: Summarization
 - [~] `ClaudeCLISummarizer` (`claude -p`), prompt + JSON parsing
-- [ ] Teacher/Student labels in the transcript view + swap button
+- [x] Teacher/Student labels in the transcript view + swap button (`SessionDetailView`)
 - [ ] Editable summary (markdown); re-run button
 
 ## M5: Progress
-- [~] Dashboard: this-week stats, not-reported list, students × last 8 weeks grid (`DashboardView`)
-- [ ] Student timeline: weekly summaries, newest first; previous week shown while recording
+- [~] Dashboard: this-week stats, not-reported list, calendar with the number of students reported per day (`DashboardView`, D26)
+- [x] Student page: week calendar strip of sessions + detail of the selected session (`SessionCalendarView`, `SessionDetailView`, D23)
+- [x] Week / Month switch on the student calendar (D24)
+- [ ] Previous week's summary shown while recording
 
 ## Later / out of scope for v1
 - Export (Markdown / PDF / Excel)

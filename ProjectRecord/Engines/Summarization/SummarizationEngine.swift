@@ -6,8 +6,9 @@ struct StudentInfo: Sendable {
 }
 
 struct SummaryResult: Codable, Sendable, Equatable {
-    /// Diarized speaker label ("A"/"B") inferred to be the teacher.
-    var teacherSpeaker: String
+    /// Diarized speaker label ("A"/"B") inferred to be the teacher; nil when it can't tell
+    /// (e.g. a few seconds of audio with a single speaker).
+    var teacherSpeaker: String?
     /// Vietnamese markdown following the template in docs/DECISIONS.md.
     var summaryMarkdown: String
 
@@ -30,7 +31,8 @@ enum SummaryPrompt {
         Các người nói được gán nhãn ẩn danh (A, B, ...).
 
         Nhiệm vụ:
-        1. Xác định nhãn nào là GIÁO VIÊN dựa vào ngữ cảnh (người đặt câu hỏi, góp ý, giao việc).
+        1. Xác định nhãn nào là GIÁO VIÊN dựa vào ngữ cảnh (người đặt câu hỏi, góp ý, giao việc). \
+        Nếu không thể xác định, dùng null cho "teacher_speaker".
         2. Tóm tắt bằng tiếng Việt, ngắn gọn, theo đúng mẫu markdown sau:
 
         ## Đã làm được

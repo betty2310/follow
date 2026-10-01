@@ -11,7 +11,7 @@ A personal native macOS app for a teacher who mentors ~30 students on their own 
 5. shows who has reported each week, plus a per-student timeline of summaries.
 
 ## Must-read docs
-- `docs/DECISIONS.md`: settled product/tech decisions (D1–D22), summary template, STT research. **Don't re-open these without asking the owner.**
+- `docs/DECISIONS.md`: settled product/tech decisions (D1–D26), summary template, STT research. **Don't re-open these without asking the owner.**
 - `docs/ARCHITECTURE.md`: pipeline, layout, models, engine protocols, storage.
 - `docs/ROADMAP.md`: milestones and status. **Update checkboxes when you finish work.**
 
@@ -45,6 +45,7 @@ make run     # build + open the app
 - `claude -p --output-format json` returns an envelope; the model text is in `result` and may be wrapped in ```json fences. `ClaudeCLISummarizer.parse` handles this, so keep its test green.
 - Microphone permission comes from `NSMicrophoneUsageDescription` in `project.yml`. Ad-hoc signing may re-prompt after rebuilds.
 - Diarization labels (A/B) are anonymous. `Session.teacherSpeaker` records which one is the teacher. The UI must allow swapping it.
+- In a `List`, don't make a `DisclosureGroup` the fixed, whole content of a `ForEach` row: SwiftUI loses sync with the NSOutlineView behind it (the row can't collapse, then toggling crashes). The sidebar avoids this by using plain rows (`ContentView.groupRow`); if you bring a DisclosureGroup back, keep a conditional in the row.
 
 ## Definition of done
 `make test` passes, new logic has tests, `docs/ROADMAP.md` is updated, and decisions that change are recorded in `docs/DECISIONS.md` with a date.

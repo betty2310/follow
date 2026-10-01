@@ -120,6 +120,46 @@ struct AppDatabaseTests {
         #expect(loaded.status == .done)
         #expect(try db.progress(groupId: g)[0].hasReported(in: WeekCalendar.week(of: .now)))
     }
+
+    @Test func renameAndArchiveGroupKeepStudents() throws {
+        let db = try AppDatabase.inMemory()
+        let g = try db.importStudents([row("1", "An")], intoNewGroupNamed: "A")
+        try db.renameGroup(id: g, to: "  Đồ án 2  ")
+        try db.setGroupArchived(id: g, true)
+
+        var group = try #require(try db.groups().first)
+        #expect(group.group.name == "Đồ án 2")
+        #expect(group.group.isArchived)
+        #expect(group.students.count == 1)
+
+        try db.setGroupArchived(id: g, false)
+        group = try #require(try db.groups().first)
+        #expect(!group.group.isArchived)
+    }
+
+    @Test func deleteGroupCascadesAndReturnsAudioPaths() throws {
+        let db = try AppDatabase.inMemory()
+        let keep = try db.importStudents([row("1", "An")], intoNewGroupNamed: "Keep")
+        let drop = try db.importStudents([row("1", "An"), row("2", "Bình")], intoNewGroupNamed: "Drop")
+        for (i, p) in try db.progress(groupId: drop).enumerated() {
+            _ = try db.insertSession(Session(studentId: p.id, date: .now, audioPath: "audio/Drop/\(i).m4a"))
+        }
+        _ = try db.insertSession(Session(studentId: db.progress(groupId: keep)[0].id, date: .now, audioPath: "audio/Keep/0.m4a"))
+
+        #expect(try db.deleteGroup(id: drop).sorted() == ["audio/Drop/0.m4a", "audio/Drop/1.m4a"])
+        #expect(try db.groups().map(\.id) == [keep])
+        #expect(try db.writer.read { try Session.fetchCount($0) } == 1)
+        #expect(try db.writer.read { try Student.fetchCount($0) } == 1)
+    }
+
+    @Test func groupsSnapshotHasEachGroupsStudents() throws {
+        let db = try AppDatabase.inMemory()
+        let a = try db.importStudents([row("1", "An")], intoNewGroupNamed: "A")
+        let b = try db.importStudents([row("2", "Bình"), row("3", "Cường")], intoNewGroupNamed: "B")
+        let groups = try db.groups()
+        #expect(groups.first { $0.id == a }?.students.map(\.student.mssv) == ["1"])
+        #expect(groups.first { $0.id == b }?.students.map(\.student.mssv) == ["2", "3"])
+    }
 }
 
 struct TimestampStorageTests {
@@ -146,6 +186,14 @@ struct TimestampStorageTests {
 }
 
 struct ClaudeCLISummarizerTests {
+    @Test func acceptsUnknownTeacherSpeaker() throws {
+        let inner = ###"{"teacher_speaker": null, "summary_markdown": "## Đã làm được\nBản ghi quá ngắn."}"###
+        let envelope = try JSONSerialization.data(withJSONObject: ["type": "result", "result": inner])
+        let result = try ClaudeCLISummarizer.parse(cliOutput: envelope)
+        #expect(result.teacherSpeaker == nil)
+        #expect(result.summaryMarkdown.hasPrefix("## Đã làm được"))
+    }
+
     @Test func parsesEnvelopeWithFencedJSON() throws {
         let inner = "```json\n{\"teacher_speaker\": \"B\", \"summary_markdown\": \"## Đã làm được\\n- X\"}\n```"
         let envelope = try JSONSerialization.data(withJSONObject: ["type": "result", "result": inner])
@@ -161,5 +209,131 @@ struct WeekCalendarTests {
         let sunday = c.date(from: DateComponents(year: 2026, month: 10, day: 4, hour: 12))!
         let monday = c.date(from: DateComponents(year: 2026, month: 10, day: 5, hour: 9))!
         #expect(WeekCalendar.week(of: sunday) != WeekCalendar.week(of: monday))
+    }
+}
+
+struct SonioxEngineTests {
+    @Test func groupsTokensBySpeakerAndRelabelsInOrderOfAppearance() {
+        let tokens: [SonioxEngine.Token] = [
+            .init(text: "Chào", startMs: 100, endMs: 300, speaker: "2"),
+            .init(text: " em", startMs: 300, endMs: 500, speaker: "2"),
+            .init(text: " Dạ", startMs: 900, endMs: 1100, speaker: "1"),
+            .init(text: " chào thầy", startMs: 1100, endMs: 1600, speaker: "1"),
+            .init(text: " Tuần", startMs: 2000, endMs: 2250, speaker: "2"),
+        ]
+        let utterances = SonioxEngine.utterances(from: tokens)
+        #expect(utterances == [
+            Utterance(speaker: "A", text: "Chào em", start: 0.1, end: 0.5),
+            Utterance(speaker: "B", text: "Dạ chào thầy", start: 0.9, end: 1.6),
+            Utterance(speaker: "A", text: "Tuần", start: 2.0, end: 2.25),
+        ])
+    }
+
+    @Test func dropsWhitespaceOnlyUtterances() {
+        let tokens: [SonioxEngine.Token] = [
+            .init(text: " ", startMs: 0, endMs: 10, speaker: "1"),
+            .init(text: "Ok", startMs: 20, endMs: 40, speaker: "2"),
+        ]
+        #expect(SonioxEngine.utterances(from: tokens).map(\.text) == ["Ok"])
+    }
+
+    @Test func decodesTranscriptWithStringOrNumericSpeaker() throws {
+        let json = #"{"id":"x","text":"a b","tokens":[{"text":"a","start_ms":0,"end_ms":10,"confidence":0.9,"speaker":"1"},{"text":" b","start_ms":10,"end_ms":20,"confidence":0.9,"speaker":2}]}"#
+        let transcript = try JSONDecoder().decode(SonioxEngine.Transcript.self, from: Data(json.utf8))
+        #expect(transcript.tokens.map(\.speaker) == ["1", "2"])
+        #expect(SonioxEngine.utterances(from: transcript.tokens).map(\.speaker) == ["A", "B"])
+    }
+
+    @Test func decodesJobError() throws {
+        let json = #"{"id":"t","status":"error","error_type":"invalid_audio","error_message":"Bad file"}"#
+        let job = try JSONDecoder().decode(SonioxEngine.Transcription.self, from: Data(json.utf8))
+        #expect(job.status == "error" && job.errorMessage == "Bad file")
+    }
+}
+
+struct SessionCalendarTests {
+    private func date(_ s: String) -> Date { DBTimestamp.date(s)! }
+
+    @Test func showsAtLeastMinimumWeeksEndingThisWeek() {
+        let now = date("2026-09-30 10:00:00.000+07:00") // Wednesday
+        let weeks = WeekCalendar.weekStarts(covering: [], now: now, minimumCount: 3)
+        #expect(weeks.count == 3)
+        #expect(weeks.last == WeekCalendar.startOfWeek(now))
+        #expect(weeks.allSatisfy { WeekCalendar.calendar.component(.weekday, from: $0) == 2 }) // Mondays
+    }
+
+    @Test func extendsBackToOldestSession() {
+        let now = date("2026-09-30 10:00:00.000+07:00")
+        let old = date("2026-06-03 09:00:00.000+07:00")
+        let weeks = WeekCalendar.weekStarts(covering: [old, now], now: now, minimumCount: 2)
+        #expect(weeks.first == WeekCalendar.startOfWeek(old))
+        #expect(weeks.last == WeekCalendar.startOfWeek(now))
+        #expect(Set(weeks).count == weeks.count)
+    }
+}
+
+struct MonthGridTests {
+    private func date(_ s: String) -> Date { DBTimestamp.date(s)! }
+
+    @Test func coversWholeMondayToSundayWeeksOfTheMonth() {
+        // September 2026: starts Tuesday 1st, ends Wednesday 30th → Mon 31 Aug … Sun 4 Oct = 5 weeks.
+        let days = WeekCalendar.monthGridDays(containing: date("2026-09-30 10:00:00.000+07:00"))
+        let cal = WeekCalendar.calendar
+        #expect(days.count == 35)
+        #expect(cal.dateComponents([.month, .day], from: days.first!) == DateComponents(month: 8, day: 31))
+        #expect(cal.dateComponents([.month, .day], from: days.last!) == DateComponents(month: 10, day: 4))
+        #expect(cal.component(.weekday, from: days.first!) == 2)
+    }
+
+    @Test func monthStartingOnMondayHasNoLeadingDays() {
+        // June 2026 starts on a Monday and ends on a Tuesday → 5 weeks.
+        let days = WeekCalendar.monthGridDays(containing: date("2026-06-15 12:00:00.000+07:00"))
+        #expect(days.first == WeekCalendar.startOfMonth(date("2026-06-15 12:00:00.000+07:00")))
+        #expect(days.count == 35)
+    }
+}
+
+struct ReportCountTests {
+    private func date(_ s: String) -> Date { DBTimestamp.date(s)! }
+    private func progress(_ id: Int64, _ dates: [String]) -> StudentProgress {
+        StudentProgress(student: Student(id: id, groupId: 1, mssv: "\(id)", fullName: "S\(id)", className: "", projectTitle: "", email: ""),
+                        sessionDates: dates.map(date))
+    }
+
+    @Test func countsEachStudentOncePerDay() {
+        let counts = WeekCalendar.studentsPerDay([
+            progress(1, ["2026-09-28 09:00:00.000+07:00", "2026-09-28 15:00:00.000+07:00", "2026-09-30 10:00:00.000+07:00"]),
+            progress(2, ["2026-09-28 23:59:00.000+07:00"]),
+            progress(3, []),
+        ])
+        let cal = WeekCalendar.calendar
+        #expect(counts[cal.startOfDay(for: date("2026-09-28 12:00:00.000+07:00"))] == 2)
+        #expect(counts[cal.startOfDay(for: date("2026-09-30 12:00:00.000+07:00"))] == 1)
+        #expect(counts.count == 2)
+    }
+}
+
+struct SpeakerRoleTests {
+    private func session(teacher: String?) -> Session {
+        var s = Session(studentId: 1, date: .now, audioPath: "a.m4a")
+        s.utterances = [
+            Utterance(speaker: "A", text: "x", start: 0, end: 1),
+            Utterance(speaker: "B", text: "y", start: 1, end: 2),
+            Utterance(speaker: "A", text: "z", start: 2, end: 3),
+        ]
+        s.teacherSpeaker = teacher
+        return s
+    }
+
+    @Test func labelsTeacherAndStudent() {
+        let s = session(teacher: "B")
+        #expect(s.roleName(of: "B") == "Teacher")
+        #expect(s.roleName(of: "A") == "Student")
+        #expect(session(teacher: nil).roleName(of: "A") == "Speaker A")
+    }
+
+    @Test func swapPicksTheOtherSpeaker() {
+        #expect(session(teacher: "A").swappedTeacherSpeaker == "B")
+        #expect(session(teacher: "B").swappedTeacherSpeaker == "A")
     }
 }

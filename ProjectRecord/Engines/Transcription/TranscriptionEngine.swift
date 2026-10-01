@@ -12,12 +12,16 @@ enum TranscriptionError: LocalizedError {
     case missingAPIKey(String)
     case http(Int, String)
     case notImplemented(String)
+    case providerFailed(String, String)
+    case emptyTranscript(String)
 
     var errorDescription: String? {
         switch self {
         case .missingAPIKey(let engine): "Missing API key for \(engine). Add it in Settings."
         case .http(let code, let body): "HTTP \(code): \(body)"
         case .notImplemented(let engine): "\(engine) is not implemented yet."
+        case .providerFailed(let engine, let message): "\(engine) failed: \(message)"
+        case .emptyTranscript(let engine): "\(engine) returned no speech for this recording."
         }
     }
 }

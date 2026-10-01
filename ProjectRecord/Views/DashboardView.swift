@@ -1,19 +1,10 @@
 import SwiftUI
 
-/// Progress overview (docs/DECISIONS.md D13): this week's count, who hasn't reported, and a students × weeks grid.
+/// Progress overview (docs/DECISIONS.md D13, D26): this week's count, who hasn't reported,
+/// and a calendar with how many students reported each day.
 struct DashboardView: View {
     let progress: [StudentProgress]
     var onSelect: (Int64) -> Void
-    var weeksShown = 8
-
-    private var weeks: [(id: WeekID, start: Date)] {
-        let thisMonday = WeekCalendar.startOfWeek(.now)
-        return (0..<weeksShown).reversed().map { offset in
-            let start = WeekCalendar.calendar.date(byAdding: .weekOfYear, value: -offset, to: thisMonday)!
-            return (WeekCalendar.week(of: start), start)
-        }
-    }
-
 
     var body: some View {
         let current = WeekCalendar.week(of: .now)
@@ -38,28 +29,8 @@ struct DashboardView: View {
                     }
 
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Weekly reports").font(.headline)
-                        Grid(alignment: .leading, horizontalSpacing: 12, verticalSpacing: 6) {
-                            GridRow {
-                                Text("Student").font(.caption).foregroundStyle(.secondary)
-                                ForEach(weeks, id: \.id) { w in
-                                    Text(w.start, format: .dateTime.day().month(.defaultDigits))
-                                        .font(.caption).foregroundStyle(.secondary)
-                                        .gridColumnAlignment(.center)
-                                }
-                            }
-                            Divider()
-                            ForEach(progress) { s in
-                                GridRow {
-                                    Button(s.student.fullName) { onSelect(s.id) }.buttonStyle(.link)
-                                    ForEach(weeks, id: \.id) { w in
-                                        let done = s.hasReported(in: w.id)
-                                        Image(systemName: done ? "checkmark.circle.fill" : "circle")
-                                            .foregroundStyle(done ? .green : .secondary.opacity(0.4))
-                                    }
-                                }
-                            }
-                        }
+                        Text("Reports per day").font(.headline)
+                        ReportCalendar(progress: progress)
                     }
                 }
                 .padding(24)
@@ -67,6 +38,41 @@ struct DashboardView: View {
             }
         }
     }
+}
+
+/// The group's calendar: each day shows how many students reported that day.
+private struct ReportCalendar: View {
+    let progress: [StudentProgress]
+
+    var body: some View {
+        let counts = WeekCalendar.studentsPerDay(progress)
+        CalendarView(dates: Array(counts.keys)) { start in
+            ForEach(0..<7, id: \.self) { offset in
+                let day = WeekCalendar.calendar.date(byAdding: .day, value: offset, to: start)!
+                if let n = counts[day] {
+                    HStack {
+                        Text(day, format: .dateTime.weekday(.abbreviated).day()).font(.caption)
+                        Spacer()
+                        Text("\(n)").font(.caption.bold().monospacedDigit())
+                    }
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 3)
+                    .background(Color.secondary.opacity(0.12), in: .capsule)
+                    .help(Self.help(n))
+                }
+            }
+        } day: { day in
+            if let n = counts[day] {
+                Text("\(n)")
+                    .font(.title2.bold().monospacedDigit())
+                    .foregroundStyle(Color.accentColor)
+                    .frame(maxWidth: .infinity)
+                    .help(Self.help(n))
+            }
+        }
+    }
+
+    private static func help(_ n: Int) -> String { n == 1 ? "1 student reported" : "\(n) students reported" }
 }
 
 private struct StatTile: View {

@@ -6,19 +6,28 @@ struct StudentDetailView: View {
     let groupName: String
     @State private var student: Student?
     @State private var sessions: [Session] = []
+    @State private var selectedSessionID: Int64?
     @State private var recorder = AudioRecorder()
     @State private var activeSessionID: Int64?
     @State private var error: String?
 
+    private var selectedSession: Session? { sessions.first { $0.id == selectedSessionID } }
+
     var body: some View {
-        List {
-            ForEach(sessions) { session in
-                SessionCard(session: session) { rerun(session) }
-            }
-        }
-        .overlay {
-            if sessions.isEmpty {
-                ContentUnavailableView("No sessions yet", systemImage: "waveform", description: Text("Press Record to start this week's session."))
+        VStack(spacing: 0) {
+            SessionCalendarView(sessions: sessions, selection: $selectedSessionID)
+                .padding([.horizontal, .top], 16)
+                .padding(.bottom, 8)
+            Divider()
+            if let session = selectedSession {
+                SessionDetailView(session: session) { rerun(session) }
+            } else {
+                ContentUnavailableView(
+                    sessions.isEmpty ? "No sessions yet" : "No session selected",
+                    systemImage: "waveform",
+                    description: Text(sessions.isEmpty ? "Press Record to start this week's session." : "Pick a session in the calendar above.")
+                )
+                .frame(maxHeight: .infinity)
             }
         }
         .navigationTitle(student?.fullName ?? "")
@@ -37,7 +46,13 @@ struct StudentDetailView: View {
             do { for try await value in db.observeStudent(id: studentID) { student = value } } catch {}
         }
         .task {
-            do { for try await value in db.observeSessions(studentId: studentID) { sessions = value } } catch {}
+            do {
+                for try await value in db.observeSessions(studentId: studentID) {
+                    sessions = value
+                    // Default to the newest session; keep the user's pick while it still exists.
+                    if selectedSession == nil { selectedSessionID = value.first?.id }
+                }
+            } catch {}
         }
     }
 
@@ -49,6 +64,7 @@ struct StudentDetailView: View {
             do {
                 try recorder.start(to: AppPaths.absolute(path))
                 activeSessionID = session.id
+                selectedSessionID = session.id
             } catch {
                 try? db.deleteSession(id: session.id!)
                 throw error
@@ -71,30 +87,5 @@ struct StudentDetailView: View {
         guard let id = session.id else { return }
         let db = db
         Task.detached { await SessionProcessor.process(sessionId: id, db: db) }
-    }
-}
-
-private struct SessionCard: View {
-    let session: Session
-    var onRerun: () -> Void
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text(session.date, format: .dateTime.weekday().day().month().hour().minute()).font(.headline)
-                Spacer()
-                Text(session.status.rawValue.capitalized).font(.caption).foregroundStyle(.secondary)
-                if session.status == .failed || session.status == .done {
-                    Button("Re-run", systemImage: "arrow.clockwise", action: onRerun).labelStyle(.iconOnly)
-                }
-            }
-            if let err = session.errorMessage {
-                Text(err).font(.caption).foregroundStyle(.red)
-            }
-            if let md = session.summaryMarkdown {
-                Text(LocalizedStringKey(md)).textSelection(.enabled)
-            }
-        }
-        .padding(.vertical, 4)
     }
 }
