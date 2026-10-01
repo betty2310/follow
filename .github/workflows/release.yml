@@ -1,0 +1,35 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+      - uses: ./.github/actions/setup
+      - run: make test
+      - name: Build release
+        run: make release VERSION="${GITHUB_REF_NAME#v}" BUILD=${{ github.run_number }}
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          cat > notes.md <<'NOTES'
+          ## Install
+          1. Download `ProjectRecord-*.zip`, unzip it, and move **ProjectRecord.app** to `/Applications`.
+          2. The app is ad-hoc signed (not notarized), so macOS blocks it on first launch. Run once:
+             ```bash
+             xattr -dr com.apple.quarantine /Applications/ProjectRecord.app
+             ```
+          Requires macOS 26+ on Apple Silicon and the `claude` CLI logged in.
+          NOTES
+          gh release create "$GITHUB_REF_NAME" "build/ProjectRecord-$VERSION.zip" \
+            --title "ProjectRecord $VERSION" --notes-file notes.md --generate-notes --verify-tag

@@ -38,6 +38,9 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 - [x] Week / Month switch on the student calendar (D24)
 - [ ] Previous week's summary shown while recording
 
+## Delivery
+- [x] CI/CD: tests on PRs, build on `main`, GitHub Release on `v*` tags (D27)
+
 ## Later / out of scope for v1
 - Export (Markdown / PDF / Excel)
 - Better speaker classification (voice enrollment of the teacher)

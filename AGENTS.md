@@ -11,7 +11,7 @@ A personal native macOS app for a teacher who mentors ~30 students on their own 
 5. shows who has reported each week, plus a per-student timeline of summaries.
 
 ## Must-read docs
-- `docs/DECISIONS.md`: settled product/tech decisions (D1–D26), summary template, STT research. **Don't re-open these without asking the owner.**
+- `docs/DECISIONS.md`: settled product/tech decisions (D1–D27), summary template, STT research. **Don't re-open these without asking the owner.**
 - `docs/ARCHITECTURE.md`: pipeline, layout, models, engine protocols, storage.
 - `docs/ROADMAP.md`: milestones and status. **Update checkboxes when you finish work.**
 
@@ -21,8 +21,10 @@ make gen     # regenerate ProjectRecord.xcodeproj from project.yml (XcodeGen)
 make build   # generate + build
 make test    # generate + run unit tests (Swift Testing)
 make run     # build + open the app
+make release VERSION=1.2.0  # Release build → build/ProjectRecord-1.2.0.zip (ad-hoc signed)
 ```
 - `ProjectRecord.xcodeproj` is **generated and git-ignored**. Change `project.yml`, never the `.xcodeproj`. Adding a Swift file under `ProjectRecord/` needs no project change; just run `make gen`.
+- CI (`.github/workflows/`): PRs run tests, `main` builds, a `v*` tag publishes a GitHub Release (D27). Release: `git tag v1.2.0 && git push origin v1.2.0`. Set versions in `project.yml`, not `Info.plist` (XcodeGen regenerates it).
 - Requirements: macOS 26+, Xcode 26+, `brew install xcodegen`.
 
 ## Conventions
