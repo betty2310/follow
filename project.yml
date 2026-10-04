@@ -1,4 +1,4 @@
-name: ProjectRecord
+name: Follow
 options:
   bundleIdPrefix: dev.betty
   deploymentTarget:
@@ -24,49 +24,49 @@ packages:
     url: https://github.com/sparkle-project/Sparkle
     from: 2.10.0
 targets:
-  ProjectRecord:
+  Follow:
     type: application
     platform: macOS
-    sources: [ProjectRecord]
+    sources: [Follow]
     dependencies:
       - package: CoreXLSX
       - package: GRDB
       - package: Sparkle
     info:
-      path: ProjectRecord/Resources/Info.plist
+      path: Follow/Resources/Info.plist
       properties:
-        CFBundleDisplayName: ProjectRecord
+        CFBundleDisplayName: Follow
         CFBundleShortVersionString: $(MARKETING_VERSION)
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.education
-        NSMicrophoneUsageDescription: ProjectRecord records your weekly sessions with students.
+        NSMicrophoneUsageDescription: Follow records your weekly sessions with students.
         # In-app updates (D28): appcast.xml is attached to every GitHub Release by .github/workflows/release.yml.
-        SUFeedURL: https://github.com/betty2310/project-record/releases/latest/download/appcast.xml
+        SUFeedURL: https://github.com/betty2310/follow/releases/latest/download/appcast.xml
         SUPublicEDKey: "zbMFwPh/tnBSTnbdAc+ECxZkrijE8i1zwfwoMb1Sq98="  # private half: GitHub secret SPARKLE_PRIVATE_KEY
         SUEnableAutomaticChecks: true
         SUScheduledCheckInterval: 86400   # daily; AppUpdater also checks at every launch
-        NSDocumentsFolderUsageDescription: ProjectRecord keeps its database and recordings in Documents/ProjectRecord.
+        NSDocumentsFolderUsageDescription: Follow keeps its database and recordings in Documents/Follow.
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: dev.betty.ProjectRecord
+        PRODUCT_BUNDLE_IDENTIFIER: dev.betty.Follow
         GENERATE_INFOPLIST_FILE: NO
-        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon  # ProjectRecord/Resources/Assets.xcassets/AppIcon.appiconset
-  ProjectRecordTests:
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon  # Follow/Resources/Assets.xcassets/AppIcon.appiconset
+  FollowTests:
     type: bundle.unit-test
     platform: macOS
-    sources: [ProjectRecordTests]
+    sources: [FollowTests]
     dependencies:
-      - target: ProjectRecord
+      - target: Follow
     settings:
       base:
         GENERATE_INFOPLIST_FILE: YES
-        TEST_HOST: $(BUILT_PRODUCTS_DIR)/ProjectRecord.app/Contents/MacOS/ProjectRecord
+        TEST_HOST: $(BUILT_PRODUCTS_DIR)/Follow.app/Contents/MacOS/Follow
         BUNDLE_LOADER: $(TEST_HOST)
 schemes:
-  ProjectRecord:
+  Follow:
     build:
       targets:
-        ProjectRecord: all
-        ProjectRecordTests: [test]
+        Follow: all
+        FollowTests: [test]
     test:
-      targets: [ProjectRecordTests]
+      targets: [FollowTests]

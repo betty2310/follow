@@ -3,7 +3,7 @@ import GRDB
 import SwiftUI
 
 /// The only place that talks to SQLite. Views read through async observations and write through methods here.
-/// File: ~/Documents/ProjectRecord/ProjectRecord.sqlite (docs/DECISIONS.md D14, D19).
+/// File: ~/Documents/Follow/Follow.sqlite (docs/DECISIONS.md D14, D19).
 struct AppDatabase: Sendable {
     let writer: any DatabaseWriter
 

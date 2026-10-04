@@ -23,7 +23,7 @@ enum APIKeys {
         }
     }
 
-    /// One-time move of keys saved by older builds from Keychain (service `ProjectRecord`).
+    /// One-time move of keys saved by older builds from Keychain (service `ProjectRecord`, the app's old name).
     /// May ask for the password once; never again after that.
     static func migrateFromKeychain(defaults: UserDefaults = .standard) {
         let doneKey = "apiKeysMigratedFromKeychain"

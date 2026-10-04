@@ -23,21 +23,21 @@ Import audio file ───────────────┤
 ## Layout
 
 ```
-ProjectRecord/
+Follow/
   App/            App entry, AppPaths (storage folder), Settings
   Database/       AppDatabase (GRDB: schema/migrations, observations, writes) + Records (StudentGroup, GroupProgress, Student, Session, Utterance, StudentProgress)
   Engines/
     Transcription/  TranscriptionEngine protocol + providers
     Summarization/  SummarizationEngine protocol + ClaudeCLISummarizer
-  Services/       AudioRecorder, SessionProcessor, StudentImporter (xlsx), APIKeys, WeekCalendar, AppUpdater (Sparkle)
+  Services/       AudioRecorder, SessionProcessor, StudentImporter (xlsx), APIKeys, WeekCalendar, AppUpdater (Sparkle), RenameMigration (one-time move from the old ProjectRecord name, D32)
   Views/          SwiftUI views: ContentView (sidebar + SidebarItem routing), DashboardView (report calendar), ImportStudentsView, StudentDetailView (SessionCalendarView + SessionDetailView, SessionEditView sheet, SessionNotesView inspector), CalendarView (shared Week/Month calendar), SettingsView (⌘, window)
-ProjectRecordTests/
+FollowTests/
   Fixtures/       Sample files with fake data (never commit real student data)
 ```
 
 ## Database (GRDB / SQLite)
 
-File: `~/Documents/ProjectRecord/ProjectRecord.sqlite`. Open it with any SQLite viewer.
+File: `~/Documents/Follow/Follow.sqlite`. Open it with any SQLite viewer.
 
 | Table | Columns |
 |---|---|
@@ -80,18 +80,20 @@ To add a provider:
 
 ## Storage
 
-`~/Documents/ProjectRecord/`
-- `ProjectRecord.sqlite`: the GRDB/SQLite database
+`~/Documents/Follow/`
+- `Follow.sqlite`: the GRDB/SQLite database
 - `audio/<group>/<MSSV>/<yyyy-MM-dd_HHmm>.m4a`
 
 API keys are in UserDefaults (`APIKeys`, D31).
+
+Before the rename to Follow (D32) this was `~/Documents/ProjectRecord/ProjectRecord.sqlite`; `RenameMigration` moves it at launch. Unit tests run inside the app and use an in-memory database, so they never touch this folder.
 
 ## Updates (Sparkle)
 
 ```
 git tag v1.2.0 && git push origin v1.2.0
   → release.yml: import certificate (D30) → make release VERSION=1.2.0 (signed) → generate_appcast (EdDSA, secret SPARKLE_PRIVATE_KEY)
-  → GitHub Release assets: ProjectRecord-1.2.0.zip + appcast.xml
+  → GitHub Release assets: Follow-1.2.0.zip + appcast.xml
 App (SUFeedURL = releases/latest/download/appcast.xml)
   → AppUpdater: check at launch + daily → UpdateStatus → sidebar version label / bubble
   → Sparkle window: download, verify EdDSA, replace the app, relaunch

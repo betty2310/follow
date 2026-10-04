@@ -20,6 +20,6 @@ jobs:
       - run: make release SIGN_ID=-  # no certificate on main builds; only tagged releases are installed
       - uses: actions/upload-artifact@v4
         with:
-          name: ProjectRecord-${{ github.sha }}
-          path: build/ProjectRecord.zip
+          name: Follow-${{ github.sha }}
+          path: build/Follow.zip
           retention-days: 14

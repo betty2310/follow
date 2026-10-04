@@ -1,4 +1,4 @@
-# ProjectRecord
+# Follow
 
 A native macOS app for tracking weekly 1:1 project reports from students. It records each session, transcribes the Vietnamese conversation with speaker labels, and writes a Vietnamese summary.
 
@@ -20,7 +20,7 @@ make run
 ```
 Then open **Settings** (⌘,): paste your STT API key and check the `claude` path (default `~/.local/bin/claude`).
 
-Data is stored in `~/Documents/ProjectRecord/`: `ProjectRecord.sqlite` plus `audio/`.
+Data is stored in `~/Documents/Follow/`: `Follow.sqlite` plus `audio/`.
 
 ## Docs
 - [AGENTS.md](AGENTS.md): contributor/agent guide

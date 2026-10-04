@@ -1,7 +1,7 @@
 import Foundation
 import GRDB
 import Testing
-@testable import ProjectRecord
+@testable import Follow
 
 struct StudentImporterTests {
     @Test func guessesMappingFromVietnameseHeaders() {
@@ -435,6 +435,72 @@ struct APIKeysTests {
         #expect(APIKeys.get(.soniox, defaults: defaults) == "sk-test")
         #expect(APIKeys.get(.gemini, defaults: defaults) == nil)
         APIKeys.set("", for: .soniox, defaults: defaults)
+        #expect(APIKeys.get(.soniox, defaults: defaults) == nil)
+    }
+}
+
+struct RenameMigrationTests {
+    private func makeDocuments() throws -> URL {
+        let url = FileManager.default.temporaryDirectory.appending(path: "RenameMigrationTests-\(UUID().uuidString)")
+        try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
+        return url
+    }
+
+    private func write(_ text: String, to url: URL) throws {
+        try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data(text.utf8).write(to: url)
+    }
+
+    @Test func movesOldFolderAndRenamesDatabase() throws {
+        let documents = try makeDocuments()
+        defer { try? FileManager.default.removeItem(at: documents) }
+        let old = documents.appending(path: "ProjectRecord")
+        try write("db", to: old.appending(path: "ProjectRecord.sqlite"))
+        try write("wal", to: old.appending(path: "ProjectRecord.sqlite-wal"))
+        try write("audio", to: old.appending(path: "audio/G1/20200001/2026-09-30_1037.m4a"))
+
+        try RenameMigration.moveDataFolder(documents: documents)
+
+        let new = documents.appending(path: "Follow")
+        #expect(!FileManager.default.fileExists(atPath: old.path))
+        #expect(try String(contentsOf: new.appending(path: "Follow.sqlite"), encoding: .utf8) == "db")
+        #expect(try String(contentsOf: new.appending(path: "Follow.sqlite-wal"), encoding: .utf8) == "wal")
+        #expect(FileManager.default.fileExists(atPath: new.appending(path: "audio/G1/20200001/2026-09-30_1037.m4a").path))
+    }
+
+    @Test func neverOverwritesExistingData() throws {
+        let documents = try makeDocuments()
+        defer { try? FileManager.default.removeItem(at: documents) }
+        try write("old", to: documents.appending(path: "ProjectRecord/ProjectRecord.sqlite"))
+        try write("new", to: documents.appending(path: "Follow/Follow.sqlite"))
+
+        try RenameMigration.moveDataFolder(documents: documents)
+
+        #expect(try String(contentsOf: documents.appending(path: "Follow/Follow.sqlite"), encoding: .utf8) == "new")
+        #expect(FileManager.default.fileExists(atPath: documents.appending(path: "ProjectRecord/ProjectRecord.sqlite").path))
+    }
+
+    @Test func doesNothingWithoutOldFolder() throws {
+        let documents = try makeDocuments()
+        defer { try? FileManager.default.removeItem(at: documents) }
+
+        try RenameMigration.moveDataFolder(documents: documents)
+
+        #expect(try FileManager.default.contentsOfDirectory(atPath: documents.path).isEmpty)
+    }
+
+    @Test func copiesOldSettingsOnce() throws {
+        let suite = "RenameMigrationTests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+        defaults.set("opus", forKey: "claudeModel")
+
+        RenameMigration.copySettings(from: ["soniox-api-key": "sk-old", "claudeModel": "sonnet"], to: defaults)
+        #expect(APIKeys.get(.soniox, defaults: defaults) == "sk-old")
+        #expect(defaults.string(forKey: "claudeModel") == "opus")
+
+        APIKeys.set(nil, for: .soniox, defaults: defaults)
+        RenameMigration.copySettings(from: ["soniox-api-key": "sk-old"], to: defaults)
         #expect(APIKeys.get(.soniox, defaults: defaults) == nil)
     }
 }

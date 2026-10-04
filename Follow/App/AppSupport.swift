@@ -1,14 +1,14 @@
 import Foundation
 
-/// Storage root: ~/Documents/ProjectRecord (visible, easy to back up). See docs/DECISIONS.md D14.
+/// Storage root: ~/Documents/Follow (visible, easy to back up). See docs/DECISIONS.md D14.
 enum AppPaths {
     static var root: URL {
-        let url = URL.documentsDirectory.appending(path: "ProjectRecord", directoryHint: .isDirectory)
+        let url = URL.documentsDirectory.appending(path: "Follow", directoryHint: .isDirectory)
         try? FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
         return url
     }
 
-    static var database: URL { root.appending(path: "ProjectRecord.sqlite") }
+    static var database: URL { root.appending(path: "Follow.sqlite") }
 
     /// Relative path for a new recording: audio/<group>/<MSSV>/<yyyy-MM-dd_HHmm>.m4a
     static func newAudioRelativePath(group: String, mssv: String, date: Date = .now) -> String {

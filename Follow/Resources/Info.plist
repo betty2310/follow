@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>ProjectRecord</string>
+	<string>Follow</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -23,13 +23,13 @@
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.education</string>
 	<key>NSDocumentsFolderUsageDescription</key>
-	<string>ProjectRecord keeps its database and recordings in Documents/ProjectRecord.</string>
+	<string>Follow keeps its database and recordings in Documents/Follow.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>ProjectRecord records your weekly sessions with students.</string>
+	<string>Follow records your weekly sessions with students.</string>
 	<key>SUEnableAutomaticChecks</key>
 	<true/>
 	<key>SUFeedURL</key>
-	<string>https://github.com/betty2310/project-record/releases/latest/download/appcast.xml</string>
+	<string>https://github.com/betty2310/follow/releases/latest/download/appcast.xml</string>
 	<key>SUPublicEDKey</key>
 	<string>zbMFwPh/tnBSTnbdAc+ECxZkrijE8i1zwfwoMb1Sq98=</string>
 	<key>SUScheduledCheckInterval</key>

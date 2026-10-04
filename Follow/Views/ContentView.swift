@@ -289,7 +289,7 @@ private struct VersionFooter: View {
                         .padding(.vertical, 4)
                         .background(.tint, in: .capsule)
                 }
-                .help("ProjectRecord \(version) is available (you have \(UpdateStatus.currentVersion())). Click to see what's new and install it.")
+                .help("Follow \(version) is available (you have \(UpdateStatus.currentVersion())). Click to see what's new and install it.")
             } else {
                 Button(UpdateStatus.currentVersion()) { updater.checkForUpdates() }
                     .font(.caption)
