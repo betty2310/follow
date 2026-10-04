@@ -4,7 +4,7 @@ struct SettingsView: View {
     @AppStorage("claudeCLIPath") private var claudeCLIPath = AppSettings.claudeCLIPath
     @AppStorage("claudeModel") private var claudeModel = "sonnet"
     @AppStorage("transcriptionEngineID") private var engineID = "soniox"
-    @State private var keys: [KeychainKey: String] = [:]
+    @State private var keys: [APIKey: String] = [:]
     @Environment(AppUpdater.self) private var updater
 
     var body: some View {
@@ -13,10 +13,10 @@ struct SettingsView: View {
                 Picker("Default engine", selection: $engineID) {
                     ForEach(EngineRegistry.transcriptionEngines, id: \.id) { Text($0.displayName).tag($0.id) }
                 }
-                ForEach(KeychainKey.allCases, id: \.self) { key in
+                ForEach(APIKey.allCases, id: \.self) { key in
                     SecureField(key.rawValue, text: Binding(
                         get: { keys[key] ?? "" },
-                        set: { keys[key] = $0; Keychain.set($0, for: key) }
+                        set: { keys[key] = $0; APIKeys.set($0, for: key) }
                     ))
                 }
             }
@@ -36,7 +36,7 @@ struct SettingsView: View {
         .frame(maxWidth: .infinity)
         .navigationTitle("Settings")
         .onAppear {
-            for key in KeychainKey.allCases { keys[key] = Keychain.get(key) }
+            for key in APIKey.allCases { keys[key] = APIKeys.get(key) }
         }
     }
 }

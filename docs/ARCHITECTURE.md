@@ -29,7 +29,7 @@ ProjectRecord/
   Engines/
     Transcription/  TranscriptionEngine protocol + providers
     Summarization/  SummarizationEngine protocol + ClaudeCLISummarizer
-  Services/       AudioRecorder, SessionProcessor, StudentImporter (xlsx), Keychain, WeekCalendar, AppUpdater (Sparkle)
+  Services/       AudioRecorder, SessionProcessor, StudentImporter (xlsx), APIKeys, WeekCalendar, AppUpdater (Sparkle)
   Views/          SwiftUI views: ContentView (sidebar + SidebarItem routing), DashboardView (report calendar), ImportStudentsView, StudentDetailView (SessionCalendarView + SessionDetailView, SessionEditView sheet, SessionNotesView inspector), CalendarView (shared Week/Month calendar), SettingsView (⌘, window)
 ProjectRecordTests/
   Fixtures/       Sample files with fake data (never commit real student data)
@@ -69,7 +69,7 @@ protocol SummarizationEngine: Sendable {
 To add a provider:
 1. Add a file in `Engines/Transcription/`.
 2. Register it in `EngineRegistry`.
-3. If it needs a key, add it to Keychain via `KeychainKey`.
+3. If it needs a key, add a case to `APIKey`.
 
 ## Summarizer (`claude -p`)
 
@@ -84,7 +84,7 @@ To add a provider:
 - `ProjectRecord.sqlite`: the GRDB/SQLite database
 - `audio/<group>/<MSSV>/<yyyy-MM-dd_HHmm>.m4a`
 
-API keys are in Keychain (service `ProjectRecord`).
+API keys are in UserDefaults (`APIKeys`, D31).
 
 ## Updates (Sparkle)
 

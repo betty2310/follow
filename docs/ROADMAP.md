@@ -24,7 +24,7 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 - [x] `SonioxEngine` (default, `stt-async-v5`): upload → create transcription → poll → map tokens to utterances → delete remote file/transcription
 - [ ] `GeminiTranscribeEngine`
 - [ ] `DeepgramEngine`
-- [ ] Settings: API keys (Keychain), default engine
+- [x] Settings: API keys (UserDefaults, D31), default engine
 - [ ] Comparison mode: run one session through all engines and show the transcripts side by side
 
 ## M4: Summarization

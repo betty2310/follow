@@ -11,6 +11,10 @@ struct ProjectRecordApp: App {
     }()
     @State private var updater = AppUpdater()
 
+    init() {
+        APIKeys.migrateFromKeychain()
+    }
+
     var body: some Scene {
         WindowGroup {
             ContentView()

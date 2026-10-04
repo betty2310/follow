@@ -12,7 +12,7 @@ struct SonioxEngine: TranscriptionEngine {
     private static let baseURL = URL(string: "https://api.soniox.com/v1")!
 
     func transcribe(audioURL: URL, language: String) async throws -> [Utterance] {
-        guard let apiKey = Keychain.get(.soniox), !apiKey.isEmpty else { throw TranscriptionError.missingAPIKey(displayName) }
+        guard let apiKey = APIKeys.get(.soniox), !apiKey.isEmpty else { throw TranscriptionError.missingAPIKey(displayName) }
         let api = API(key: apiKey)
 
         let fileID = try await api.upload(audioURL)

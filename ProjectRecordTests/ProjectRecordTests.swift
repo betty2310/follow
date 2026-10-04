@@ -423,3 +423,18 @@ struct UpdateStatusTests {
         #expect(UpdateStatus.currentVersion().hasPrefix("v"))
     }
 }
+
+struct APIKeysTests {
+    @Test func storesAndClearsKeys() throws {
+        let suite = "APIKeysTests-\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suite))
+        defer { defaults.removePersistentDomain(forName: suite) }
+
+        #expect(APIKeys.get(.soniox, defaults: defaults) == nil)
+        APIKeys.set("sk-test", for: .soniox, defaults: defaults)
+        #expect(APIKeys.get(.soniox, defaults: defaults) == "sk-test")
+        #expect(APIKeys.get(.gemini, defaults: defaults) == nil)
+        APIKeys.set("", for: .soniox, defaults: defaults)
+        #expect(APIKeys.get(.soniox, defaults: defaults) == nil)
+    }
+}

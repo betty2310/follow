@@ -38,7 +38,7 @@ make install # Release build → /Applications, reset mic/Documents permissions,
 - Vocabulary: **Group** = a folder of students; **Project** = a student's own project (`projectTitle`). Don't mix them up.
 - Weeks are **derived** from `Session.date` via `WeekCalendar` (ISO Mon–Sun). Never store a week number.
 - **Never commit real student data** (names, MSSV, emails, recordings). Test fixtures in `ProjectRecordTests/Fixtures/` use fake data.
-- Secrets live in Keychain (`Keychain`, `KeychainKey`). Never commit API keys or put them in `UserDefaults`.
+- API keys live in UserDefaults via `APIKeys` / `APIKey` (D31, not Keychain: it prompted for the password). Never commit API keys.
 - Data lives in `~/Documents/ProjectRecord/` (`AppPaths`). Audio paths are stored **relative** to that root.
 - Not sandboxed, not for the App Store: the app spawns the `claude` CLI via `Process` using an absolute path (GUI apps don't get the shell `PATH`).
 - Before implementing a cloud STT provider, **read its current API docs** (links in `Providers.swift`). APIs in this area change often.
