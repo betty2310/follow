@@ -49,5 +49,19 @@ make release VERSION=1.2.0  # Release build → build/ProjectRecord-1.2.0.zip (a
 - Diarization labels (A/B) are anonymous. `Session.teacherSpeaker` records which one is the teacher. The UI must allow swapping it.
 - In a `List`, don't make a `DisclosureGroup` the fixed, whole content of a `ForEach` row: SwiftUI loses sync with the NSOutlineView behind it (the row can't collapse, then toggling crashes). The sidebar avoids this by using plain rows (`ContentView.groupRow`); if you bring a DisclosureGroup back, keep a conditional in the row.
 
+## Commits
+Follow [How to Write a Git Commit Message](https://chris.beams.io/git-commit):
+1. Separate the subject from the body with a blank line.
+2. Limit the subject line to 50 characters.
+3. Capitalize the subject line.
+4. Don't end the subject line with a period.
+5. Use the imperative mood in the subject (`Add Soniox engine`, not `Added …`/`Adds …`). It should complete "If applied, this commit will …".
+6. Wrap the body at 72 characters.
+7. Use the body to explain *what* and *why*, not *how* (the diff shows how).
+
+Keep one logical change per commit; split unrelated work instead of listing it all in one subject.
+
+Don't add AI attribution: no `Co-Authored-By: Claude …` trailer and no "Generated with Claude Code" line in commits or PRs.
+
 ## Definition of done
 `make test` passes, new logic has tests, `docs/ROADMAP.md` is updated, and decisions that change are recorded in `docs/DECISIONS.md` with a date.
