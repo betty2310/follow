@@ -90,7 +90,7 @@ API keys are in Keychain (service `ProjectRecord`).
 
 ```
 git tag v1.2.0 && git push origin v1.2.0
-  → release.yml: make release VERSION=1.2.0 → generate_appcast (EdDSA, secret SPARKLE_PRIVATE_KEY)
+  → release.yml: import certificate (D30) → make release VERSION=1.2.0 (signed) → generate_appcast (EdDSA, secret SPARKLE_PRIVATE_KEY)
   → GitHub Release assets: ProjectRecord-1.2.0.zip + appcast.xml
 App (SUFeedURL = releases/latest/download/appcast.xml)
   → AppUpdater: check at launch + daily → UpdateStatus → sidebar version label / bubble
@@ -100,3 +100,4 @@ App (SUFeedURL = releases/latest/download/appcast.xml)
 - `AppUpdater` (`@Observable`, injected with `.environment(updater)`) wraps `SPUStandardUpdaterController` and is the Sparkle delegate. It does nothing under unit tests, and Debug builds only check when asked.
 - Feed URL, public key and the daily interval are Info.plist keys in `project.yml`. Never change `SUPublicEDKey` without keeping the private key: installed apps would reject every later update.
 - The Sparkle tools (`generate_keys`, `sign_update`, `generate_appcast`) are in `build/SourcePackages/artifacts/sparkle/Sparkle/bin/` after a build.
+- Two keys, two jobs: the **EdDSA key** proves an update came from us (Sparkle checks it); the **code signing certificate** (D30) keeps the app's identity stable, so macOS keeps its permissions after an update.

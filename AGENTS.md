@@ -21,11 +21,11 @@ make gen     # regenerate ProjectRecord.xcodeproj from project.yml (XcodeGen)
 make build   # generate + build
 make test    # generate + run unit tests (Swift Testing)
 make run     # build + open the app
-make release VERSION=1.2.0  # Release build → build/ProjectRecord-1.2.0.zip (ad-hoc signed)
+make release VERSION=1.2.0  # Release build → build/ProjectRecord-1.2.0.zip (self-signed certificate, D30; SIGN_ID=- for ad-hoc)
 make install # Release build → /Applications, reset mic/Documents permissions, launch
 ```
 - `ProjectRecord.xcodeproj` is **generated and git-ignored**. Change `project.yml`, never the `.xcodeproj`. Adding a Swift file under `ProjectRecord/` needs no project change; just run `make gen`.
-- CI (`.github/workflows/`): PRs run tests, `main` builds, a `v*` tag publishes a GitHub Release (D27). Release: `git tag v1.2.0 && git push origin v1.2.0`. The release also publishes the Sparkle `appcast.xml` that installed apps update from (D28); it needs the repo secret `SPARKLE_PRIVATE_KEY`. Set versions in `project.yml`, not `Info.plist` (XcodeGen regenerates it).
+- CI (`.github/workflows/`): PRs run tests, `main` builds, a `v*` tag publishes a GitHub Release (D27). Release: `git tag v1.2.0 && git push origin v1.2.0`. The release also publishes the Sparkle `appcast.xml` that installed apps update from (D28); it needs the repo secrets `SPARKLE_PRIVATE_KEY`, `SIGNING_CERT_P12` and `SIGNING_CERT_PASSWORD`. Set versions in `project.yml`, not `Info.plist` (XcodeGen regenerates it).
 - Requirements: macOS 26+, Xcode 26+, `brew install xcodegen`.
 
 ## Conventions
@@ -46,7 +46,7 @@ make install # Release build → /Applications, reset mic/Documents permissions,
 
 ## Gotchas
 - `claude -p --output-format json` returns an envelope; the model text is in `result` and may be wrapped in ```json fences. `ClaudeCLISummarizer.parse` handles this, so keep its test green.
-- Microphone permission comes from `NSMicrophoneUsageDescription` in `project.yml`. Ad-hoc signing may re-prompt after rebuilds.
+- Microphone permission comes from `NSMicrophoneUsageDescription` in `project.yml`. Debug builds are ad-hoc signed and may re-prompt after rebuilds; release builds keep their permissions across updates (D30).
 - Diarization labels (A/B) are anonymous. `Session.teacherSpeaker` records which one is the teacher. The UI must allow swapping it.
 - In a `List`, don't make a `DisclosureGroup` the fixed, whole content of a `ForEach` row: SwiftUI loses sync with the NSOutlineView behind it (the row can't collapse, then toggling crashes). The sidebar avoids this by using plain rows (`ContentView.groupRow`); if you bring a DisclosureGroup back, keep a conditional in the row.
 

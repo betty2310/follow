@@ -17,6 +17,25 @@ jobs:
           fetch-depth: 0  # tags + history for the update's release notes
       - uses: ./.github/actions/setup
       - run: make test
+      # Self-signed code signing certificate (D30), in a throwaway keychain that codesign can use without prompts.
+      - name: Import signing certificate
+        env:
+          SIGNING_CERT_P12: ${{ secrets.SIGNING_CERT_P12 }}
+          SIGNING_CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
+        run: |
+          if [ -z "$SIGNING_CERT_P12" ]; then
+            echo "::error::Missing secret SIGNING_CERT_P12 (see docs/DECISIONS.md D30)"; exit 1
+          fi
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD=$(openssl rand -base64 24)
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 3600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          echo "$SIGNING_CERT_P12" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security import "$RUNNER_TEMP/cert.p12" -k "$KEYCHAIN" -P "$SIGNING_CERT_PASSWORD" -T /usr/bin/codesign
+          rm "$RUNNER_TEMP/cert.p12"
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
       - name: Build release
         run: make release VERSION="${GITHUB_REF_NAME#v}"
       # Sparkle feed for in-app updates (D28): signed with the EdDSA key whose public half is SUPublicEDKey
@@ -49,7 +68,7 @@ jobs:
           cat > notes.md <<'NOTES'
           ## Install
           1. Download `ProjectRecord-*.zip`, unzip it, and move **ProjectRecord.app** to `/Applications`.
-          2. The app is ad-hoc signed (not notarized), so macOS blocks it on first launch. Run once:
+          2. The app is self-signed (not notarized), so macOS blocks it on first launch. Run once:
              ```bash
              xattr -dr com.apple.quarantine /Applications/ProjectRecord.app
              ```

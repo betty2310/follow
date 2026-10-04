@@ -42,6 +42,7 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 ## Delivery
 - [x] CI/CD: tests on PRs, build on `main`, GitHub Release on `v*` tags (D27)
 - [x] In-app updates with Sparkle: check at launch + daily, version bubble in the sidebar, appcast published by the release workflow (D28)
+- [x] Release builds signed with a self-signed certificate so permissions survive updates (D30)
 
 ## Later / out of scope for v1
 - Export (Markdown / PDF / Excel)

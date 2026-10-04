@@ -7,6 +7,9 @@ VERSION ?=
 BUILD ?= $(VERSION)
 VERSION_FLAGS := $(if $(VERSION),MARKETING_VERSION=$(VERSION)) $(if $(BUILD),CURRENT_PROJECT_VERSION=$(BUILD))
 APP := $(DD)/Build/Products/Release/ProjectRecord.app
+# Release builds are re-signed with this self-signed certificate (D30): a stable code identity, so macOS keeps
+# the Microphone/Documents permissions across updates. `SIGN_ID=-` signs ad-hoc (e.g. without the certificate).
+SIGN_ID ?= ProjectRecord Self-Signed
 BUNDLE_ID := dev.betty.ProjectRecord
 INSTALL_DIR ?= /Applications
 
@@ -19,9 +22,12 @@ test: gen
 	$(XCB) test
 run: build
 	open $(DD)/Build/Products/Debug/ProjectRecord.app
-# Release build, ad-hoc signed, zipped with ditto (keeps the signature and bundle metadata intact).
+# Release build signed with $(SIGN_ID), zipped with ditto (keeps the signature and bundle metadata intact).
+# Xcode signs ad-hoc; only the outer app is re-signed, which seals the nested frameworks as they are.
 release: gen
 	$(XCB) -configuration Release build $(VERSION_FLAGS)
+	codesign --force --sign "$(SIGN_ID)" $(APP)
+	codesign --verify --deep --strict $(APP)
 	ditto -c -k --keepParent $(APP) $(DD)/ProjectRecord$(if $(VERSION),-$(VERSION)).zip
 # Release build copied to /Applications, then launched. Ad-hoc signing gives every build a new
 # code identity, so old Microphone/Documents grants go stale; reset them so macOS asks again.
