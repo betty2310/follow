@@ -73,6 +73,15 @@ struct AppDatabase: Sendable {
         migrator.registerMigration("v3-group-archive") { db in
             try db.alter(table: "studentGroup") { t in t.add(column: "archivedAt", .datetime) }
         }
+        migrator.registerMigration("v4-session-note") { db in
+            // A dev build briefly shipped "v4-session-project-note" (session.note + session.projectTitle).
+            // The project title belongs to the student (D29), so drop that column if it exists.
+            let columns = Set(try db.columns(in: "session").map(\.name))
+            try db.alter(table: "session") { t in
+                if !columns.contains("note") { t.add(column: "note", .text).notNull().defaults(to: "") }
+                if columns.contains("projectTitle") { t.drop(column: "projectTitle") }
+            }
+        }
         return migrator
     }
 }
@@ -247,8 +256,14 @@ extension AppDatabase {
         }
     }
 
-    func deleteSession(id: Int64) throws {
-        _ = try writer.write { db in try Session.deleteOne(db, id: id) }
+    /// Deletes the session. Returns its audio path (relative to `AppPaths.root`) so the caller can remove the file.
+    @discardableResult
+    func deleteSession(id: Int64) throws -> String? {
+        try writer.write { db in
+            guard let session = try Session.fetchOne(db, id: id) else { return nil }
+            try session.delete(db)
+            return session.audioPath
+        }
     }
 
     func session(id: Int64) throws -> Session? {
@@ -257,6 +272,14 @@ extension AppDatabase {
 
     func student(id: Int64) throws -> Student? {
         try writer.read { db in try Student.fetchOne(db, id: id) }
+    }
+
+    func setProjectTitle(studentId: Int64, _ title: String) throws {
+        try writer.write { db in
+            guard var student = try Student.fetchOne(db, id: studentId) else { return }
+            student.projectTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+            try student.update(db)
+        }
     }
 
     /// Read-modify-write a session in one transaction.

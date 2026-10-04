@@ -1,11 +1,13 @@
 import AppKit
 import SwiftUI
 
-/// Everything about one recording: status and actions, the Vietnamese summary, and the labeled transcript.
+/// Everything about one recording: status and actions, the teacher's note, the Vietnamese summary, and the labeled transcript.
 struct SessionDetailView: View {
     @Environment(\.appDatabase) private var db
     let session: Session
     var onRerun: () -> Void
+    var onEdit: () -> Void
+    var onDelete: () -> Void
 
     var body: some View {
         ScrollView {
@@ -15,6 +17,7 @@ struct SessionDetailView: View {
                     Label(err, systemImage: "exclamationmark.triangle.fill")
                         .foregroundStyle(.red).textSelection(.enabled)
                 }
+                NoteSection(session: session).id(session.id)
                 section("Summary") {
                     if let md = session.summaryMarkdown, !md.isEmpty {
                         MarkdownText(markdown: md)
@@ -59,6 +62,11 @@ struct SessionDetailView: View {
                 Button("Re-run", systemImage: "arrow.clockwise", action: onRerun)
                     .help("Transcribe and summarize again")
             }
+            Button("Edit…", systemImage: "pencil", action: onEdit)
+                .help("Edit the date and summary")
+            Button("Delete…", systemImage: "trash", role: .destructive, action: onDelete)
+                .disabled(session.status == .recording)
+                .help("Delete this session")
         }
     }
 
@@ -108,6 +116,72 @@ struct SessionDetailView: View {
         } else {
             NSWorkspace.shared.open(url.deletingLastPathComponent())
         }
+    }
+}
+
+/// The teacher's note for this session (D29): *Add Note* when empty; otherwise the text with Edit and Delete.
+private struct NoteSection: View {
+    @Environment(\.appDatabase) private var db
+    let session: Session
+    // A flag plus a plain String rather than `Binding($draft)`, which crashes when Cancel sets nil.
+    @State private var isEditing = false
+    @State private var draft = ""
+    @State private var confirmingDelete = false
+    @FocusState private var focused: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text("Note").font(.title3.bold())
+                if !isEditing && !session.note.isEmpty {
+                    Group {
+                        Button("Edit Note", systemImage: "pencil") { startEditing(session.note) }
+                        Button("Delete Note", systemImage: "trash") { confirmingDelete = true }
+                    }
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                }
+            }
+            if isEditing {
+                TextEditor(text: $draft)
+                    .font(.body)
+                    .scrollContentBackground(.hidden)
+                    .padding(6)
+                    .frame(minHeight: 100)
+                    .background(.background, in: .rect(cornerRadius: 6))
+                    .overlay { RoundedRectangle(cornerRadius: 6).strokeBorder(.quaternary) }
+                    .focused($focused)
+                    .onAppear { focused = true }
+                    .onExitCommand { isEditing = false }
+                HStack {
+                    Spacer()
+                    Button("Cancel") { isEditing = false }
+                    Button("Save") { save(draft) }
+                        .buttonStyle(.borderedProminent)
+                        .keyboardShortcut(.return, modifiers: .command)
+                        .help("Save (⌘↩)")
+                }
+            } else if session.note.isEmpty {
+                Button("Add Note", systemImage: "plus") { startEditing("") }
+            } else {
+                Text(session.note).textSelection(.enabled)
+            }
+        }
+        .confirmationDialog("Delete this note?", isPresented: $confirmingDelete) {
+            Button("Delete", role: .destructive) { save("") }
+        }
+    }
+
+    private func save(_ text: String) {
+        guard let id = session.id else { return }
+        let note = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        try? db.updateSession(id: id) { $0.note = note }
+        isEditing = false
+    }
+
+    private func startEditing(_ text: String) {
+        draft = text
+        isEditing = true
     }
 }
 

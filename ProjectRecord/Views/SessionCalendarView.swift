@@ -66,6 +66,8 @@ struct CalendarView<WeekContent: View, DayContent: View>: View {
 struct SessionCalendarView: View {
     let sessions: [Session]
     @Binding var selection: Int64?
+    var onEdit: (Session) -> Void = { _ in }
+    var onDelete: (Session) -> Void = { _ in }
 
     var body: some View {
         let sorted = sessions.sorted { $0.date < $1.date }
@@ -74,14 +76,22 @@ struct SessionCalendarView: View {
         CalendarView(dates: sessions.map(\.date), focus: sessions.first { $0.id == selection }?.date) { start in
             ForEach(byWeek[WeekCalendar.week(of: start)] ?? []) { session in
                 SessionChip(session: session, isSelected: session.id == selection) { selection = session.id }
+                    .contextMenu { menu(for: session) }
             }
         } day: { day in
             ForEach(byDay[day] ?? []) { session in
                 SessionChip(session: session, isSelected: session.id == selection, showsWeekday: false) {
                     selection = session.id
                 }
+                .contextMenu { menu(for: session) }
             }
         }
+    }
+
+    @ViewBuilder private func menu(for session: Session) -> some View {
+        Button("Edit…") { onEdit(session) }
+        Button("Delete…", role: .destructive) { onDelete(session) }
+            .disabled(session.status == .recording)
     }
 }
 

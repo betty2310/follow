@@ -1,4 +1,5 @@
 import Foundation
+import GRDB
 import Testing
 @testable import ProjectRecord
 
@@ -159,6 +160,68 @@ struct AppDatabaseTests {
         let groups = try db.groups()
         #expect(groups.first { $0.id == a }?.students.map(\.student.mssv) == ["1"])
         #expect(groups.first { $0.id == b }?.students.map(\.student.mssv) == ["2", "3"])
+    }
+
+    @Test func sessionNoteRoundTrips() throws {
+        let db = try AppDatabase.inMemory()
+        let g = try db.importStudents([row("1", "An")], intoNewGroupNamed: "A")
+        let s = try db.insertSession(Session(studentId: db.progress(groupId: g)[0].id, date: .now, audioPath: "a.m4a"))
+        #expect(s.note == "")
+        try db.updateSession(id: s.id!) { $0.note = "Chưa có demo, hẹn tuần sau." }
+        #expect(try db.session(id: s.id!)?.note == "Chưa có demo, hẹn tuần sau.")
+    }
+
+    @Test func setProjectTitleTrimsAndKeepsOtherFields() throws {
+        let db = try AppDatabase.inMemory()
+        let g = try db.importStudents([row("1", "An", project: "Web bán hàng")], intoNewGroupNamed: "A")
+        let id = try db.progress(groupId: g)[0].id
+        try db.setProjectTitle(studentId: id, "  App đặt lịch  ")
+        let student = try #require(try db.student(id: id))
+        #expect(student.projectTitle == "App đặt lịch")
+        #expect(student.fullName == "An")
+    }
+
+    @Test func deleteSessionReturnsAudioPathAndKeepsOthers() throws {
+        let db = try AppDatabase.inMemory()
+        let g = try db.importStudents([row("1", "An")], intoNewGroupNamed: "A")
+        let studentID = try db.progress(groupId: g)[0].id
+        let drop = try db.insertSession(Session(studentId: studentID, date: .now, audioPath: "audio/A/1/drop.m4a"))
+        let keep = try db.insertSession(Session(studentId: studentID, date: .now, audioPath: "audio/A/1/keep.m4a"))
+
+        #expect(try db.deleteSession(id: drop.id!) == "audio/A/1/drop.m4a")
+        #expect(try db.deleteSession(id: drop.id!) == nil)
+        #expect(try db.session(id: keep.id!) != nil)
+        #expect(try db.progress(groupId: g)[0].sessionDates.count == 1)
+    }
+
+    @Test func migrationGivesExistingSessionsAnEmptyNote() throws {
+        let queue = try DatabaseQueue()
+        try AppDatabase.migrator.migrate(queue, upTo: "v3-group-archive")
+        try queue.write { db in
+            try db.execute(sql: "INSERT INTO studentGroup (id, name, createdAt) VALUES (1, 'A', ?)",
+                           arguments: [DBTimestamp.string(.now)])
+            try db.execute(sql: "INSERT INTO student (id, groupId, mssv, fullName, projectTitle) VALUES (1, 1, '1', 'An', 'Web bán hàng')")
+            try db.execute(sql: "INSERT INTO session (id, studentId, date, audioPath, status) VALUES (1, 1, ?, 'a.m4a', 'done')",
+                           arguments: [DBTimestamp.string(.now)])
+        }
+        let db = try AppDatabase(queue)
+        #expect(try db.session(id: 1)?.note == "")
+    }
+
+    @Test func migrationDropsSessionProjectTitleFromEarlyDevBuild() throws {
+        let queue = try DatabaseQueue()
+        try AppDatabase.migrator.migrate(queue, upTo: "v3-group-archive")
+        try queue.write { db in
+            try db.execute(sql: """
+                ALTER TABLE session ADD COLUMN projectTitle TEXT NOT NULL DEFAULT '';
+                ALTER TABLE session ADD COLUMN note TEXT NOT NULL DEFAULT '';
+                INSERT INTO grdb_migrations (identifier) VALUES ('v4-session-project-note');
+                """)
+        }
+        let db = try AppDatabase(queue)
+        let columns = try db.writer.read { try $0.columns(in: "session").map(\.name) }
+        #expect(columns.contains("note"))
+        #expect(!columns.contains("projectTitle"))
     }
 }
 

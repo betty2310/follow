@@ -30,7 +30,7 @@ ProjectRecord/
     Transcription/  TranscriptionEngine protocol + providers
     Summarization/  SummarizationEngine protocol + ClaudeCLISummarizer
   Services/       AudioRecorder, SessionProcessor, StudentImporter (xlsx), Keychain, WeekCalendar
-  Views/          SwiftUI views: ContentView (sidebar + SidebarItem routing), DashboardView (report calendar), ImportStudentsView, StudentDetailView (SessionCalendarView + SessionDetailView), CalendarView (shared Week/Month calendar), SettingsView (⌘, window)
+  Views/          SwiftUI views: ContentView (sidebar + SidebarItem routing), DashboardView (report calendar), ImportStudentsView, StudentDetailView (SessionCalendarView + SessionDetailView, SessionEditView sheet, SessionNotesView inspector), CalendarView (shared Week/Month calendar), SettingsView (⌘, window)
 ProjectRecordTests/
   Fixtures/       Sample files with fake data (never commit real student data)
 ```
@@ -43,7 +43,7 @@ File: `~/Documents/ProjectRecord/ProjectRecord.sqlite`. Open it with any SQLite 
 |---|---|
 | `studentGroup` | `id`, `name`, `createdAt`, `archivedAt` (null = active) |
 | `student` | `id`, `groupId` → studentGroup (cascade), `mssv`, `fullName`, `className`, `projectTitle`, `email`; unique (`groupId`, `mssv`) |
-| `session` | `id`, `studentId` → student (cascade), `date`, `audioPath`, `status`, `errorMessage`, `transcriptEngine`, `utterances` (JSON), `teacherSpeaker`, `summaryMarkdown` |
+| `session` | `id`, `studentId` → student (cascade), `date`, `audioPath`, `status`, `errorMessage`, `transcriptEngine`, `utterances` (JSON), `teacherSpeaker`, `summaryMarkdown`, `note` (teacher's own note, D29) |
 
 Rules:
 - **Only `AppDatabase` touches SQL.** Views read with `db.observeX()` inside `.task { for try await … }` and write with `AppDatabase` methods.

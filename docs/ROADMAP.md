@@ -12,7 +12,7 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 - [x] Import sheet: instructions, column mapping (auto-guess + manual), target group (existing/new), new/updated preview, name normalization (`ImportStudentsView`, `StudentImporter`)
 - [x] Sidebar: search, every group as a collapsible row with its students (folder icon, double-click toggles), group dashboard (D26)
 - [x] Group management: new, rename, archive/unarchive, delete with confirmation (right-click menu), hide/show students (D25)
-- [ ] Edit a student's details
+- [~] Edit a student's details: project title box on the student page (D29)
 
 ## M2: Recording
 - [~] Record / stop with the Mac microphone → `.m4a` (`AudioRecorder`)
@@ -30,13 +30,14 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 ## M4: Summarization
 - [~] `ClaudeCLISummarizer` (`claude -p`), prompt + JSON parsing
 - [x] Teacher/Student labels in the transcript view + swap button (`SessionDetailView`)
-- [ ] Editable summary (markdown); re-run button
+- [x] Editable summary (markdown) in the session edit sheet; re-run button (D29)
 
 ## M5: Progress
 - [~] Dashboard: this-week stats, not-reported list, calendar with the number of students reported per day (`DashboardView`, D26)
 - [x] Student page: week calendar strip of sessions + detail of the selected session (`SessionCalendarView`, `SessionDetailView`, D23)
 - [x] Week / Month switch on the student calendar (D24)
 - [ ] Previous week's summary shown while recording
+- [x] Session edit (date, summary) / delete (recording to Trash), a note box per session, Notes inspector on the student page (`SessionEditView`, `SessionNotesView`, D29)
 
 ## Delivery
 - [x] CI/CD: tests on PRs, build on `main`, GitHub Release on `v*` tags (D27)

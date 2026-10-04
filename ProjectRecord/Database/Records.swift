@@ -104,6 +104,8 @@ struct Session: Codable, Hashable, Identifiable, Sendable, MutablePersistableRec
     /// "A" / "B": which diarized speaker is the teacher (inferred by the summarizer, swappable in UI).
     var teacherSpeaker: String?
     var summaryMarkdown: String?
+    /// The teacher's own free-text note, typed on the session page. Not used by the pipeline (D29).
+    var note: String = ""
 
     mutating func didInsert(_ inserted: InsertionSuccess) { id = inserted.rowID }
 
