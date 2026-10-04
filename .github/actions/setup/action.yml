@@ -9,9 +9,11 @@ runs:
     - name: Install XcodeGen
       shell: bash
       run: brew install xcodegen
+    # SwiftPM records absolute paths (e.g. binary artifacts like Sparkle.xcframework), so a cache is only
+    # valid at the workspace path it was built in: the key includes it (the repo rename moved it).
     - name: Cache Swift packages
       uses: actions/cache@v4
       with:
         path: build/SourcePackages
-        key: spm-${{ runner.os }}-${{ hashFiles('project.yml') }}
-        restore-keys: spm-${{ runner.os }}-
+        key: spm-${{ runner.os }}-${{ github.workspace }}-${{ hashFiles('project.yml') }}
+        restore-keys: spm-${{ runner.os }}-${{ github.workspace }}-
