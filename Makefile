@@ -1,9 +1,10 @@
 # All commands agents/humans need. The .xcodeproj is generated; never edit it by hand.
 DD := build
 XCB := xcodebuild -project ProjectRecord.xcodeproj -scheme ProjectRecord -destination 'platform=macOS' -derivedDataPath $(DD)
-# Release version: `make release VERSION=1.2.0 BUILD=42` (CI sets these from the tag and run number).
+# Release version: `make release VERSION=1.2.0` (CI sets it from the tag). The build number defaults to
+# the version, so Sparkle (which compares CFBundleVersion) orders releases by their tags (D28).
 VERSION ?=
-BUILD ?=
+BUILD ?= $(VERSION)
 VERSION_FLAGS := $(if $(VERSION),MARKETING_VERSION=$(VERSION)) $(if $(BUILD),CURRENT_PROJECT_VERSION=$(BUILD))
 APP := $(DD)/Build/Products/Release/ProjectRecord.app
 BUNDLE_ID := dev.betty.ProjectRecord

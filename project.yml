@@ -20,6 +20,9 @@ packages:
   CoreXLSX:
     url: https://github.com/CoreOffice/CoreXLSX
     from: 0.14.2
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.10.0
 targets:
   ProjectRecord:
     type: application
@@ -28,6 +31,7 @@ targets:
     dependencies:
       - package: CoreXLSX
       - package: GRDB
+      - package: Sparkle
     info:
       path: ProjectRecord/Resources/Info.plist
       properties:
@@ -36,6 +40,12 @@ targets:
         CFBundleVersion: $(CURRENT_PROJECT_VERSION)
         LSApplicationCategoryType: public.app-category.education
         NSMicrophoneUsageDescription: ProjectRecord records your weekly sessions with students.
+        # In-app updates (D28): appcast.xml is attached to every GitHub Release by .github/workflows/release.yml.
+        SUFeedURL: https://github.com/betty2310/project-record/releases/latest/download/appcast.xml
+        SUPublicEDKey: "zbMFwPh/tnBSTnbdAc+ECxZkrijE8i1zwfwoMb1Sq98="  # private half: GitHub secret SPARKLE_PRIVATE_KEY
+        SUEnableAutomaticChecks: true
+        SUScheduledCheckInterval: 86400   # daily; AppUpdater also checks at every launch
+        NSDocumentsFolderUsageDescription: ProjectRecord keeps its database and recordings in Documents/ProjectRecord.
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: dev.betty.ProjectRecord

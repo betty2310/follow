@@ -5,6 +5,7 @@ struct SettingsView: View {
     @AppStorage("claudeModel") private var claudeModel = "sonnet"
     @AppStorage("transcriptionEngineID") private var engineID = "soniox"
     @State private var keys: [KeychainKey: String] = [:]
+    @Environment(AppUpdater.self) private var updater
 
     var body: some View {
         Form {
@@ -22,6 +23,12 @@ struct SettingsView: View {
             Section("Summarization (claude -p)") {
                 TextField("Claude CLI path", text: $claudeCLIPath)
                 TextField("Model", text: $claudeModel)
+            }
+            Section("Updates") {
+                @Bindable var updater = updater
+                Toggle("Check for updates every day", isOn: $updater.automaticallyChecks)
+                LabeledContent("Version", value: UpdateStatus.currentVersion())
+                Button("Check for Updates…") { updater.checkForUpdates() }
             }
         }
         .formStyle(.grouped)

@@ -22,7 +22,17 @@
 	<string>$(CURRENT_PROJECT_VERSION)</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.education</string>
+	<key>NSDocumentsFolderUsageDescription</key>
+	<string>ProjectRecord keeps its database and recordings in Documents/ProjectRecord.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>ProjectRecord records your weekly sessions with students.</string>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://github.com/betty2310/project-record/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>zbMFwPh/tnBSTnbdAc+ECxZkrijE8i1zwfwoMb1Sq98=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 </dict>
 </plist>

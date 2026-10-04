@@ -400,3 +400,26 @@ struct SpeakerRoleTests {
         #expect(session(teacher: "B").swappedTeacherSpeaker == "A")
     }
 }
+
+struct UpdateStatusTests {
+    @Test func bubbleShowsUntilUpToDateOrSkipped() {
+        var status = UpdateStatus()
+        #expect(status.availableVersion == nil)
+        status.found("1.2.0")
+        #expect(status.availableVersion == "1.2.0")
+        status.skipped()
+        #expect(status.availableVersion == nil)
+        status.found("1.3.0")
+        status.notFound()
+        #expect(status.availableVersion == nil)
+    }
+
+    @Test func infoPlistHasUpdateFeedAndKey() throws {
+        let info = try #require(Bundle.main.infoDictionary)
+        let feed = try #require(info["SUFeedURL"] as? String)
+        #expect(feed.hasSuffix("/releases/latest/download/appcast.xml"))
+        let key = try #require(info["SUPublicEDKey"] as? String)
+        #expect(Data(base64Encoded: key)?.count == 32)  // ed25519 public key
+        #expect(UpdateStatus.currentVersion().hasPrefix("v"))
+    }
+}

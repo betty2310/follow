@@ -9,15 +9,23 @@ struct ProjectRecordApp: App {
             fatalError("Failed to open database at \(AppPaths.database.path): \(error)")
         }
     }()
+    @State private var updater = AppUpdater()
 
     var body: some Scene {
         WindowGroup {
             ContentView()
         }
         .environment(\.appDatabase, database)
+        .environment(updater)
+        .commands {
+            CommandGroup(after: .appInfo) {
+                Button("Check for Updates…") { updater.checkForUpdates() }
+            }
+        }
 
         Settings {
             SettingsView()
+                .environment(updater)
         }
     }
 }

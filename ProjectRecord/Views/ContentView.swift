@@ -60,6 +60,7 @@ struct ContentView: View {
             .onDeleteCommand {
                 if case .group(let id) = selection, let g = groups.first(where: { $0.id == id }) { deleting = g }
             }
+            .safeAreaInset(edge: .bottom) { VersionFooter() }
             .searchable(text: $search, placement: .sidebar, prompt: "Search students")
             .navigationSplitViewColumnWidth(min: 240, ideal: 280)
             .toolbar {
@@ -269,6 +270,37 @@ private struct GroupRow: View {
         }
             .badge(group.students.isEmpty ? nil : Text("\(reported)/\(group.students.count)"))
             .help("\(reported) of \(group.students.count) students reported this week")
+    }
+}
+
+/// App version at the bottom of the sidebar, replaced by a bubble when a newer release is out (D28).
+/// Either one opens Sparkle's window: the update to install, or "You're up to date".
+private struct VersionFooter: View {
+    @Environment(AppUpdater.self) private var updater
+
+    var body: some View {
+        Group {
+            if let version = updater.status.availableVersion {
+                Button { updater.checkForUpdates() } label: {
+                    Label("New version \(version)", systemImage: "arrow.down.circle.fill")
+                        .font(.caption.weight(.medium))
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 4)
+                        .background(.tint, in: .capsule)
+                }
+                .help("ProjectRecord \(version) is available (you have \(UpdateStatus.currentVersion())). Click to see what's new and install it.")
+            } else {
+                Button(UpdateStatus.currentVersion()) { updater.checkForUpdates() }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .help("Check for Updates…")
+            }
+        }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
     }
 }
 

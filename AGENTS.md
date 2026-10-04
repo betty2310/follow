@@ -25,7 +25,7 @@ make release VERSION=1.2.0  # Release build → build/ProjectRecord-1.2.0.zip (a
 make install # Release build → /Applications, reset mic/Documents permissions, launch
 ```
 - `ProjectRecord.xcodeproj` is **generated and git-ignored**. Change `project.yml`, never the `.xcodeproj`. Adding a Swift file under `ProjectRecord/` needs no project change; just run `make gen`.
-- CI (`.github/workflows/`): PRs run tests, `main` builds, a `v*` tag publishes a GitHub Release (D27). Release: `git tag v1.2.0 && git push origin v1.2.0`. Set versions in `project.yml`, not `Info.plist` (XcodeGen regenerates it).
+- CI (`.github/workflows/`): PRs run tests, `main` builds, a `v*` tag publishes a GitHub Release (D27). Release: `git tag v1.2.0 && git push origin v1.2.0`. The release also publishes the Sparkle `appcast.xml` that installed apps update from (D28); it needs the repo secret `SPARKLE_PRIVATE_KEY`. Set versions in `project.yml`, not `Info.plist` (XcodeGen regenerates it).
 - Requirements: macOS 26+, Xcode 26+, `brew install xcodegen`.
 
 ## Conventions
