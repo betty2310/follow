@@ -22,6 +22,7 @@ make build   # generate + build
 make test    # generate + run unit tests (Swift Testing)
 make run     # build + open the app
 make release VERSION=1.2.0  # Release build → build/ProjectRecord-1.2.0.zip (ad-hoc signed)
+make install # Release build → /Applications, reset mic/Documents permissions, launch
 ```
 - `ProjectRecord.xcodeproj` is **generated and git-ignored**. Change `project.yml`, never the `.xcodeproj`. Adding a Swift file under `ProjectRecord/` needs no project change; just run `make gen`.
 - CI (`.github/workflows/`): PRs run tests, `main` builds, a `v*` tag publishes a GitHub Release (D27). Release: `git tag v1.2.0 && git push origin v1.2.0`. Set versions in `project.yml`, not `Info.plist` (XcodeGen regenerates it).

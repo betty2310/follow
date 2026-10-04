@@ -6,8 +6,10 @@ VERSION ?=
 BUILD ?=
 VERSION_FLAGS := $(if $(VERSION),MARKETING_VERSION=$(VERSION)) $(if $(BUILD),CURRENT_PROJECT_VERSION=$(BUILD))
 APP := $(DD)/Build/Products/Release/ProjectRecord.app
+BUNDLE_ID := dev.betty.ProjectRecord
+INSTALL_DIR ?= /Applications
 
-.PHONY: gen build test run release clean
+.PHONY: gen build test run release install clean
 gen:
 	xcodegen generate
 build: gen
@@ -20,5 +22,16 @@ run: build
 release: gen
 	$(XCB) -configuration Release build $(VERSION_FLAGS)
 	ditto -c -k --keepParent $(APP) $(DD)/ProjectRecord$(if $(VERSION),-$(VERSION)).zip
+# Release build copied to /Applications, then launched. Ad-hoc signing gives every build a new
+# code identity, so old Microphone/Documents grants go stale; reset them so macOS asks again.
+# (TCC can't be granted from a script; click Allow on the prompts.)
+install: release
+	-osascript -e 'quit app "ProjectRecord"' 2>/dev/null
+	rm -rf $(INSTALL_DIR)/ProjectRecord.app
+	ditto $(APP) $(INSTALL_DIR)/ProjectRecord.app
+	-xattr -dr com.apple.quarantine $(INSTALL_DIR)/ProjectRecord.app 2>/dev/null
+	-tccutil reset Microphone $(BUNDLE_ID)
+	-tccutil reset SystemPolicyDocumentsFolder $(BUNDLE_ID)
+	open $(INSTALL_DIR)/ProjectRecord.app
 clean:
 	rm -rf $(DD) ProjectRecord.xcodeproj
