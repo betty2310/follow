@@ -73,7 +73,8 @@ struct ContentView: View {
                 Button("Import Students…", systemImage: "square.and.arrow.down") { importing = true }
             }
         } detail: {
-            detail
+            // Cross-fade between groups and students rather than swapping in one frame.
+            detail.animation(.easeInOut(duration: 0.2), value: selection)
         }
         .sheet(isPresented: $importing) {
             ImportStudentsView(groups: groups.map(\.group), defaultGroupID: currentGroup?.id) { groupID in

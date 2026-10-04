@@ -53,17 +53,34 @@ struct StudentDetailView: View {
             Text("The session of \(session.date.formatted(date: .abbreviated, time: .shortened)) is permanently deleted with its transcript, summary and note. The recording is moved to the Trash.")
         }
         .toolbar {
-            Toggle("Notes", systemImage: "note.text", isOn: $showNotes)
-                .help("Show every session's note")
-            if recorder.isRecording {
-                Button("Stop", systemImage: "stop.circle.fill", action: stop).tint(.red)
-            } else {
-                Button("Record", systemImage: "record.circle", action: record).disabled(student == nil)
+            ToolbarItem {
+                Toggle("Notes", systemImage: "note.text", isOn: $showNotes)
+                    .help("Show every session's note")
+            }
+            ToolbarSpacer(.fixed)
+            // Recording is what this page is for: a labeled, accent-colored button on its own
+            // (not red, which reads as destructive).
+            ToolbarItem {
+                Group {
+                    if recorder.isRecording {
+                        Button("Stop", systemImage: "stop.fill", action: stop)
+                            .help("Stop recording and transcribe")
+                    } else {
+                        Button("Record", systemImage: "record.circle", action: record)
+                            .disabled(student == nil)
+                            .help("Record this week's session")
+                    }
+                }
+                .labelStyle(.titleAndIcon)
+                .buttonStyle(.borderedProminent)
             }
         }
         .alert("Error", isPresented: .constant(error != nil)) {
             Button("OK") { error = nil }
         } message: { Text(error ?? "") }
+        // Runs before the first frame: the page appears complete instead of empty until the
+        // observations below deliver, which flashed when switching students.
+        .onAppear(perform: preload)
         .task {
             do {
                 for try await value in db.observeStudent(id: studentID) { student = value }
@@ -78,6 +95,12 @@ struct StudentDetailView: View {
                 }
             } catch {}
         }
+    }
+
+    private func preload() {
+        student = try? db.student(id: studentID)
+        sessions = (try? db.sessions(studentId: studentID)) ?? []
+        selectedSessionID = sessions.first?.id
     }
 
     private func record() {

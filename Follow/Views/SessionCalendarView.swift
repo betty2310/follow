@@ -5,13 +5,14 @@ enum CalendarMode: String, CaseIterable {
 }
 
 /// A calendar (docs/DECISIONS.md D23, D24, D26) whose cells the caller fills, switchable between:
-/// - **Week**: a horizontal strip, one Mon–Sun column per week, scrolled to the current week;
+/// - **Week**: a horizontal strip, one Mon–Sun column per week, scrolled to the focused (or current) week;
 /// - **Month**: a Mon–Sun day grid for one month with ‹ › navigation.
 /// Shows a student's sessions (`SessionCalendarView`) and a group's reports per day (`DashboardView`).
 struct CalendarView<WeekContent: View, DayContent: View>: View {
     /// Dates of what the calendar shows: the week strip reaches back to the oldest one.
     let dates: [Date]
-    /// When this changes, month mode moves to its month (e.g. the selected session, or a new recording).
+    /// The date to keep in view (e.g. the selected session, or a new recording): the week strip scrolls to
+    /// its week and month mode moves to its month. `nil` shows the current week.
     var focus: Date?
     /// A week column's content under its header, given the week's Monday.
     @ViewBuilder var week: (Date) -> WeekContent
@@ -34,14 +35,14 @@ struct CalendarView<WeekContent: View, DayContent: View>: View {
                 if mode == .month { monthNavigation }
             }
             switch mode {
-            case .week: WeekStrip(dates: dates, content: week)
+            case .week: WeekStrip(dates: dates, focus: focus, content: week)
             case .month:
                 // Take the grid's full height so busy days aren't squeezed by the pane below.
                 MonthGrid(month: month, content: day)
                     .fixedSize(horizontal: false, vertical: true)
             }
         }
-        .onChange(of: focus) {
+        .onChange(of: focus, initial: true) {
             if let focus { month = WeekCalendar.startOfMonth(focus) }
         }
     }
@@ -95,17 +96,23 @@ struct SessionCalendarView: View {
     }
 }
 
-/// Week mode: one column per week, from the oldest date (or 8 weeks back) through this week.
+/// Week mode: one column per week, from the oldest date (or 8 weeks back) through this week,
+/// scrolled so the focused week (or this week) is in view.
 private struct WeekStrip<Content: View>: View {
     let dates: [Date]
+    let focus: Date?
     let content: (Date) -> Content
+    @State private var width = 0.0
+    @State private var scrolledTo: WeekID?
 
     var body: some View {
         let current = WeekCalendar.week(of: .now)
+        let starts = WeekCalendar.weekStarts(covering: dates)
+        let target = WeekCalendar.week(of: focus ?? .now)
         ScrollViewReader { proxy in
             ScrollView(.horizontal) {
                 HStack(alignment: .top, spacing: 0) {
-                    ForEach(WeekCalendar.weekStarts(covering: dates), id: \.self) { start in
+                    ForEach(starts, id: \.self) { start in
                         let id = WeekCalendar.week(of: start)
                         WeekColumn(start: start, isCurrent: id == current) { content(start) }
                             .id(id)
@@ -115,11 +122,27 @@ private struct WeekStrip<Content: View>: View {
                 .padding(.horizontal, 8)
             }
             .scrollIndicators(.visible)
-            .onAppear { proxy.scrollTo(current, anchor: .trailing) }
+            // Start at the end (recent weeks), so the scroll to the target below rarely shows a jump.
+            .defaultScrollAnchor(.trailing)
+            .onGeometryChange(for: Double.self) { $0.size.width.rounded() } action: { width = $0 }
+            // A task, not onAppear: it runs after the columns are laid out, so the scroll isn't lost.
+            // Rerun when columns are added or the strip is resized, which move the week out of view.
+            .task(id: ScrollTarget(week: target, columns: starts.count, width: width)) {
+                // Animate only a move to another week (a picked note, a new recording); jump otherwise.
+                let moved = scrolledTo != nil && scrolledTo != target
+                withAnimation(moved ? .default : nil) { proxy.scrollTo(target, anchor: .center) }
+                scrolledTo = target
+            }
         }
         .frame(height: 150)
         .background(.quaternary.opacity(0.35), in: .rect(cornerRadius: 10))
     }
+}
+
+private struct ScrollTarget: Hashable {
+    let week: WeekID
+    let columns: Int
+    let width: Double
 }
 
 /// Month mode: Mon–Sun rows covering the month; days outside it are dimmed.

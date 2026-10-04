@@ -35,6 +35,7 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 ## M5: Progress
 - [~] Dashboard: this-week stats, not-reported list, calendar with the number of students reported per day (`DashboardView`, D26)
 - [x] Student page: week calendar strip of sessions + detail of the selected session (`SessionCalendarView`, `SessionDetailView`, D23)
+- [x] Calendar follows the selected session; session sections as cards, summary and transcript side by side when wide; Record as the primary toolbar button; cross-fade between students (D33)
 - [x] Week / Month switch on the student calendar (D24)
 - [ ] Previous week's summary shown while recording
 - [x] Session edit (date, summary) / delete (recording to Trash), a note box per session, Notes inspector on the student page (`SessionEditView`, `SessionNotesView`, D29)

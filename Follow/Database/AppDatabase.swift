@@ -100,12 +100,19 @@ extension AppDatabase {
         try writer.read { db in try Self.groups(db) }
     }
 
+    /// A student's sessions, newest first.
     func observeSessions(studentId: Int64) -> AsyncValueObservation<[Session]> {
         ValueObservation
-            .tracking { db in
-                try Session.filter(Session.Columns.studentId == studentId).order(Session.Columns.date.desc).fetchAll(db)
-            }
+            .tracking { db in try Self.sessions(db, studentId: studentId) }
             .values(in: writer)
+    }
+
+    func sessions(studentId: Int64) throws -> [Session] {
+        try writer.read { db in try Self.sessions(db, studentId: studentId) }
+    }
+
+    private static func sessions(_ db: Database, studentId: Int64) throws -> [Session] {
+        try Session.filter(Session.Columns.studentId == studentId).order(Session.Columns.date.desc).fetchAll(db)
     }
 
     func observeStudent(id: Int64) -> AsyncValueObservation<Student?> {
