@@ -4,6 +4,7 @@ import SwiftUI
 /// and a calendar with how many students reported each day.
 struct DashboardView: View {
     let progress: [StudentProgress]
+    var onAdd: () -> Void
     var onSelect: (Int64) -> Void
 
     var body: some View {
@@ -11,8 +12,13 @@ struct DashboardView: View {
         let missing = progress.filter { !$0.hasReported(in: current) }
 
         if progress.isEmpty {
-            ContentUnavailableView("No students yet", systemImage: "person.3",
-                                   description: Text("Import a student list (.xlsx) into a group from the toolbar."))
+            ContentUnavailableView {
+                Label("No students yet", systemImage: "person.3")
+            } description: {
+                Text("Add students one by one, or import a student list (.xlsx) from the toolbar.")
+            } actions: {
+                Button("Add Student…", action: onAdd)
+            }
         } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {

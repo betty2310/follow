@@ -111,6 +111,15 @@ enum StudentImporter {
         }
     }
 
+    /// One student typed into the Add Student form, cleaned like an imported row (D21).
+    /// Nil when MSSV or name is empty.
+    static func row(mssv: String, fullName: String, projectTitle: String = "", email: String = "") -> Row? {
+        let mssv = cleanText(mssv), name = normalizeName(fullName)
+        guard !mssv.isEmpty, !name.isEmpty else { return nil }
+        return Row(mssv: mssv, fullName: name, className: "",
+                   projectTitle: cleanText(projectTitle), email: cleanText(email).lowercased())
+    }
+
     /// Unicode NFC + trimmed + collapsed whitespace. NFC matters: Vietnamese copied from Excel/web may be
     /// decomposed (e.g. "e" + combining marks), which breaks search and MSSV/name matching.
     static func cleanText(_ s: String) -> String {

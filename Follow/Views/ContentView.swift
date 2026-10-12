@@ -14,6 +14,7 @@ struct ContentView: View {
     @State private var selection: SidebarItem?
     @State private var search = ""
     @State private var importing = false
+    @State private var adding = false
     @State private var naming: GroupNaming?
     @State private var nameDraft = ""
     @State private var deleting: GroupProgress?
@@ -70,6 +71,9 @@ struct ContentView: View {
                 }
                 .help(allCollapsed ? "Show the students in every group" : "Collapse every group to just its name")
                 Button("New Group…", systemImage: "folder.badge.plus") { startNaming(nil) }
+                Button("Add Student…", systemImage: "person.badge.plus") { adding = true }
+                    .disabled(groups.isEmpty)
+                    .help("Add one student to a group")
                 Button("Import Students…", systemImage: "square.and.arrow.down") { importing = true }
             }
         } detail: {
@@ -80,6 +84,12 @@ struct ContentView: View {
             ImportStudentsView(groups: groups.map(\.group), defaultGroupID: currentGroup?.id) { groupID in
                 setCollapsed([groupID], false)
                 selection = .group(groupID)
+            }
+        }
+        .sheet(isPresented: $adding) {
+            AddStudentView(groups: groups.map(\.group), defaultGroupID: currentGroup?.id) { student in
+                setCollapsed([student.groupId], false)
+                selection = student.id.map { .student($0) }
             }
         }
         .alert(naming?.title ?? "", isPresented: isPresent($naming), presenting: naming) { n in
@@ -144,9 +154,14 @@ struct ContentView: View {
     @ViewBuilder private func contextMenu(for items: Set<SidebarItem>) -> some View {
         if items.isEmpty {
             Button("New Group…") { startNaming(nil) }
+            Button("Add Student…") { adding = true }.disabled(groups.isEmpty)
             Button("Import Students…") { importing = true }
         } else if items.count == 1, case .group(let id) = items.first, let g = groups.first(where: { $0.id == id }) {
             Button("Rename…") { startNaming(g.group) }
+            Button("Add Student…") {
+                selection = .group(id)
+                adding = true
+            }
             Button("Import Students into Group…") {
                 selection = .group(id)
                 importing = true
@@ -227,7 +242,7 @@ struct ContentView: View {
         switch selection {
         case .group(let id):
             let g = groups.first { $0.id == id }
-            DashboardView(progress: g?.students ?? []) { selection = .student($0) }
+            DashboardView(progress: g?.students ?? [], onAdd: { adding = true }) { selection = .student($0) }
                 .navigationTitle(g?.group.name ?? "Dashboard")
                 .navigationSubtitle(g?.group.isArchived == true ? "Archived" : "")
         case .student(let id):

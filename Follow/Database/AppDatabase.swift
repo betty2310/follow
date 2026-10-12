@@ -204,6 +204,32 @@ extension AppDatabase {
         }
     }
 
+    enum AddStudentError: LocalizedError, Equatable {
+        case duplicateMSSV(String, existingName: String)
+        var errorDescription: String? {
+            switch self {
+            case .duplicateMSSV(let mssv, let name): "MSSV \(mssv) is already in this group (\(name))."
+            }
+        }
+    }
+
+    /// Adds one student typed in the Add Student form. Unlike an import, an existing MSSV is an error,
+    /// not an update: the form is for new students.
+    @discardableResult
+    func addStudent(_ row: StudentImporter.Row, to groupId: Int64) throws -> Student {
+        try writer.write { db in
+            if let existing = try Student
+                .filter(Student.Columns.groupId == groupId && Student.Columns.mssv == row.mssv)
+                .fetchOne(db) {
+                throw AddStudentError.duplicateMSSV(row.mssv, existingName: existing.fullName)
+            }
+            var student = Student(groupId: groupId, mssv: row.mssv, fullName: row.fullName,
+                                  className: row.className, projectTitle: row.projectTitle, email: row.email)
+            try student.insert(db)
+            return student
+        }
+    }
+
     /// What `importStudents` would do, without writing. `groupId == nil` means a new group.
     func planImport(_ rows: [StudentImporter.Row], into groupId: Int64?) throws -> ImportPlan {
         try writer.read { db in try Self.apply(rows, groupId: groupId, db: db, dryRun: true) }

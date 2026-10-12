@@ -100,6 +100,32 @@ struct AppDatabaseTests {
         #expect(try db.progress(groupId: groupID).count == 3)
     }
 
+    @Test func addStudentFormRowIsCleanedAndNeedsNameAndMSSV() {
+        let row = StudentImporter.row(mssv: " 20210001 ", fullName: "trần  THỊ c", projectTitle: " Chat  app ", email: " C@Example.com ")
+        #expect(row == .init(mssv: "20210001", fullName: "Trần Thị C", className: "", projectTitle: "Chat app", email: "c@example.com"))
+        #expect(StudentImporter.row(mssv: "  ", fullName: "An") == nil)
+        #expect(StudentImporter.row(mssv: "1", fullName: "") == nil)
+    }
+
+    @Test func addStudentRefusesAnMSSVAlreadyInTheGroup() throws {
+        let db = try AppDatabase.inMemory()
+        let g1 = try db.importStudents([row("1", "An")], intoNewGroupNamed: "A")
+        let g2 = try db.createGroup(name: "B").id!
+
+        let added = try db.addStudent(row("2", "Bình", project: "Chat app"), to: g1)
+        #expect(added.id != nil && added.groupId == g1)
+        #expect(try db.progress(groupId: g1).map(\.student.mssv) == ["1", "2"])
+
+        #expect(throws: AppDatabase.AddStudentError.duplicateMSSV("1", existingName: "An")) {
+            try db.addStudent(row("1", "Someone Else"), to: g1)
+        }
+        #expect(try db.progress(groupId: g1).first?.student.fullName == "An")
+
+        // The same MSSV in another group is a different student (D20).
+        try db.addStudent(row("1", "An"), to: g2)
+        #expect(try db.progress(groupId: g2).count == 1)
+    }
+
     @Test func sameMSSVInTwoGroupsIsTwoStudents() throws {
         let db = try AppDatabase.inMemory()
         let g1 = try db.importStudents([row("1", "An")], intoNewGroupNamed: "A")
