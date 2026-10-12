@@ -13,6 +13,7 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 - [x] Sidebar: search, every group as a collapsible row with its students (folder icon, double-click toggles), group dashboard (D26)
 - [x] Group management: new, rename, archive/unarchive, delete with confirmation (right-click menu), hide/show students (D25)
 - [x] Add one student by hand: name + MSSV, optional email and project title (`AddStudentView`, D34)
+- [x] Random animal emoji per student, click to change (`StudentEmojiButton`, D35)
 - [~] Edit a student's details: project title box on the student page (D29)
 
 ## M2: Recording

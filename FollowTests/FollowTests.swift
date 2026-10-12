@@ -126,6 +126,28 @@ struct AppDatabaseTests {
         #expect(try db.progress(groupId: g2).count == 1)
     }
 
+    @Test func newStudentsGetDistinctAnimalsAndCanChangeThem() throws {
+        let db = try AppDatabase.inMemory()
+        let rows = (1...10).map { row("\($0)", "S\($0)") }
+        let groupID = try db.importStudents(rows, intoNewGroupNamed: "A")
+        let students = try db.progress(groupId: groupID).map(\.student)
+        #expect(students.allSatisfy { AnimalEmoji.all.contains($0.emoji) })
+        #expect(Set(students.map(\.emoji)).count == 10)
+
+        // Re-importing keeps the emoji.
+        try db.importStudents([row("1", "S1", project: "Chat app")], into: groupID)
+        #expect(try db.student(id: students[0].id!)?.emoji == students[0].emoji)
+
+        try db.setEmoji(studentId: students[0].id!, "🦖")
+        #expect(try db.student(id: students[0].id!)?.emoji == "🦖")
+    }
+
+    @Test func randomAnimalAvoidsUsedOnesUntilAllAreTaken() {
+        let allButOne = AnimalEmoji.all.dropLast()
+        #expect(AnimalEmoji.random(avoiding: allButOne) == AnimalEmoji.all.last)
+        #expect(AnimalEmoji.all.contains(AnimalEmoji.random(avoiding: AnimalEmoji.all)))
+    }
+
     @Test func sameMSSVInTwoGroupsIsTwoStudents() throws {
         let db = try AppDatabase.inMemory()
         let g1 = try db.importStudents([row("1", "An")], intoNewGroupNamed: "A")

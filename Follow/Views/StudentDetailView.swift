@@ -53,6 +53,11 @@ struct StudentDetailView: View {
             Text("The session of \(session.date.formatted(date: .abbreviated, time: .shortened)) is permanently deleted with its transcript, summary and note. The recording is moved to the Trash.")
         }
         .toolbar {
+            // The student's animal sits just before the name in the title bar (D35).
+            ToolbarItem(placement: .navigation) {
+                StudentEmojiButton(student: student, size: 22)
+            }
+            .sharedBackgroundVisibility(.hidden)
             ToolbarItem {
                 Toggle("Notes", systemImage: "note.text", isOn: $showNotes)
                     .help("Show every session's note")

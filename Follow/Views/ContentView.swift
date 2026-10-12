@@ -324,6 +324,7 @@ private struct StudentRow: View {
     let progress: StudentProgress
     var body: some View {
         HStack {
+            StudentEmojiButton(student: progress.student)
             VStack(alignment: .leading) {
                 Text(progress.student.fullName)
                 Text([progress.student.mssv, progress.student.projectTitle].filter { !$0.isEmpty }.joined(separator: " · "))

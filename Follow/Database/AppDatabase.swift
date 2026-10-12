@@ -82,6 +82,17 @@ struct AppDatabase: Sendable {
                 if columns.contains("projectTitle") { t.drop(column: "projectTitle") }
             }
         }
+        migrator.registerMigration("v5-student-emoji") { db in
+            try db.alter(table: "student") { t in t.add(column: "emoji", .text).notNull().defaults(to: "") }
+            // Existing students get a random animal, different from their group mates while there are enough (D35).
+            var used: [Int64: [String]] = [:]
+            for row in try Row.fetchAll(db, sql: "SELECT id, groupId FROM student ORDER BY id") {
+                let groupId: Int64 = row["groupId"]
+                let emoji = AnimalEmoji.random(avoiding: used[groupId] ?? [])
+                used[groupId, default: []].append(emoji)
+                try db.execute(sql: "UPDATE student SET emoji = ? WHERE id = ?", arguments: [emoji, row["id"] as Int64])
+            }
+        }
         return migrator
     }
 }
@@ -311,6 +322,14 @@ extension AppDatabase {
         try writer.write { db in
             guard var student = try Student.fetchOne(db, id: studentId) else { return }
             student.projectTitle = title.trimmingCharacters(in: .whitespacesAndNewlines)
+            try student.update(db)
+        }
+    }
+
+    func setEmoji(studentId: Int64, _ emoji: String) throws {
+        try writer.write { db in
+            guard var student = try Student.fetchOne(db, id: studentId) else { return }
+            student.emoji = emoji
             try student.update(db)
         }
     }

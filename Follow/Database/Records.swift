@@ -76,6 +76,14 @@ struct Student: Codable, Hashable, Identifiable, Sendable, FetchableRecord, Muta
     /// The student's own project (Tên đề tài).
     var projectTitle: String
     var email: String
+    /// An animal emoji shown next to the name, just for fun (D35). Picked at random on insert when empty.
+    var emoji: String = ""
+
+    mutating func willInsert(_ db: Database) throws {
+        guard emoji.isEmpty else { return }
+        let used = try String.fetchAll(db, sql: "SELECT emoji FROM student WHERE groupId = ?", arguments: [groupId])
+        emoji = AnimalEmoji.random(avoiding: used)
+    }
 
     mutating func didInsert(_ inserted: InsertionSuccess) { id = inserted.rowID }
 
