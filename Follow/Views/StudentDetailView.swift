@@ -148,7 +148,7 @@ struct StudentDetailView: View {
     }
 }
 
-/// The student's project title as the page heading, with a small pencil to edit it in place (D29).
+/// The student's project title as the page heading, with a button (or a double-click) to edit it in place (D29).
 private struct ProjectTitleHeader: View {
     @Environment(\.appDatabase) private var db
     let student: Student?
@@ -160,7 +160,7 @@ private struct ProjectTitleHeader: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
+        HStack(alignment: .center, spacing: 10) {
             if isEditing {
                 TextField("Project title", text: $draft, prompt: Text("The student's project"))
                     .textFieldStyle(.roundedBorder)
@@ -177,20 +177,34 @@ private struct ProjectTitleHeader: View {
                     .font(.largeTitle.bold())
                     .foregroundStyle(title.isEmpty ? .secondary : .primary)
                     .textSelection(.enabled)
-                Button("Edit Project Title", systemImage: "pencil") {
-                    draft = title
-                    isEditing = true
+                    .onTapGesture(count: 2) { startEditing(title) }
+                    .help("Double-click to edit")
+                if title.isEmpty {
+                    Button("Add Title", systemImage: "plus") { startEditing(title) }
+                        .buttonStyle(.bordered)
+                        .buttonBorderShape(.capsule)
+                        .disabled(student == nil)
+                        .help("Add the project title")
+                } else {
+                    Button("Edit Project Title", systemImage: "pencil") { startEditing(title) }
+                        .labelStyle(.iconOnly)
+                        .buttonStyle(.bordered)
+                        .buttonBorderShape(.circle)
+                        .disabled(student == nil)
+                        .help("Edit the project title")
                 }
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.borderless)
-                    .disabled(student == nil)
-                    .help("Edit the project title")
                 Spacer()
             }
         }
         .alert("Error", isPresented: .constant(error != nil)) {
             Button("OK") { error = nil }
         } message: { Text(error ?? "") }
+    }
+
+    private func startEditing(_ title: String) {
+        guard student != nil else { return }
+        draft = title
+        isEditing = true
     }
 
     private func save() {
