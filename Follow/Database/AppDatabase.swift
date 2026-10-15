@@ -93,6 +93,28 @@ struct AppDatabase: Sendable {
                 try db.execute(sql: "UPDATE student SET emoji = ? WHERE id = ?", arguments: [emoji, row["id"] as Int64])
             }
         }
+        migrator.registerMigration("v6-session-optional-audio") { db in
+            // A text note is a session without audio (D36). SQLite can't drop NOT NULL in place, so copy the table.
+            try db.create(table: "newSession") { t in
+                t.autoIncrementedPrimaryKey("id")
+                t.column("studentId", .integer).notNull()
+                    .references("student", onDelete: .cascade)
+                t.column("date", .datetime).notNull()
+                t.column("audioPath", .text)
+                t.column("status", .text).notNull()
+                t.column("errorMessage", .text)
+                t.column("transcriptEngine", .text)
+                t.column("utterances", .text).notNull().defaults(to: "[]")
+                t.column("teacherSpeaker", .text)
+                t.column("summaryMarkdown", .text)
+                t.column("note", .text).notNull().defaults(to: "")
+            }
+            let columns = "id, studentId, date, audioPath, status, errorMessage, transcriptEngine, utterances, teacherSpeaker, summaryMarkdown, note"
+            try db.execute(sql: "INSERT INTO newSession (\(columns)) SELECT \(columns) FROM session")
+            try db.drop(table: "session")
+            try db.rename(table: "newSession", to: "session")
+            try db.create(index: "index_session_on_studentId", on: "session", columns: ["studentId"])
+        }
         return migrator
     }
 }
@@ -124,6 +146,29 @@ extension AppDatabase {
 
     private static func sessions(_ db: Database, studentId: Int64) throws -> [Session] {
         try Session.filter(Session.Columns.studentId == studentId).order(Session.Columns.date.desc).fetchAll(db)
+    }
+
+    /// Every session of a group's students with its student, oldest first: the group's day board (D36).
+    func observeSessions(groupId: Int64) -> AsyncValueObservation<[StudentSession]> {
+        ValueObservation
+            .tracking { db in try Self.sessions(db, groupId: groupId) }
+            .values(in: writer)
+    }
+
+    func sessions(groupId: Int64) throws -> [StudentSession] {
+        try writer.read { db in try Self.sessions(db, groupId: groupId) }
+    }
+
+    private static func sessions(_ db: Database, groupId: Int64) throws -> [StudentSession] {
+        let students = Dictionary(uniqueKeysWithValues: try Student
+            .filter(Student.Columns.groupId == groupId).fetchAll(db).map { ($0.id!, $0) })
+        return try Session.filter(students.keys.contains(Session.Columns.studentId))
+            .order(Session.Columns.date).fetchAll(db)
+            .compactMap { s in students[s.studentId].map { StudentSession(session: s, student: $0) } }
+    }
+
+    func observeSession(id: Int64) -> AsyncValueObservation<Session?> {
+        ValueObservation.tracking { db in try Session.fetchOne(db, id: id) }.values(in: writer)
     }
 
     func observeStudent(id: Int64) -> AsyncValueObservation<Student?> {
@@ -208,7 +253,7 @@ extension AppDatabase {
             let paths = try String.fetchAll(db, sql: """
                 SELECT session.audioPath FROM session
                 JOIN student ON student.id = session.studentId
-                WHERE student.groupId = ?
+                WHERE student.groupId = ? AND session.audioPath IS NOT NULL
                 """, arguments: [id])
             try StudentGroup.deleteOne(db, id: id)
             return paths
@@ -300,7 +345,16 @@ extension AppDatabase {
         }
     }
 
-    /// Deletes the session. Returns its audio path (relative to `AppPaths.root`) so the caller can remove the file.
+    /// Adds a text note (a session without audio, D36). Returns nil when the text is blank.
+    @discardableResult
+    func addNote(studentId: Int64, date: Date, text: String) throws -> Session? {
+        let text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty else { return nil }
+        return try insertSession(Session(studentId: studentId, date: date, audioPath: nil, status: .done, note: text))
+    }
+
+    /// Deletes the session. Returns its audio path (relative to `AppPaths.root`), if it has one,
+    /// so the caller can remove the file.
     @discardableResult
     func deleteSession(id: Int64) throws -> String? {
         try writer.write { db in

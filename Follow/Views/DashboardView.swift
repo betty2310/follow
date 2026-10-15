@@ -1,108 +1,93 @@
 import SwiftUI
 
-/// Progress overview (docs/DECISIONS.md D13, D26): this week's count, who hasn't reported,
-/// and a calendar with how many students reported each day.
+/// A group's page (docs/DECISIONS.md D13, D26, D36): this week's count and who hasn't reported on top,
+/// then the day board with every student's recordings and notes.
 struct DashboardView: View {
+    @Environment(\.appDatabase) private var db
+    let groupID: Int64
     let progress: [StudentProgress]
     var onAdd: () -> Void
     var onSelect: (Int64) -> Void
+    @State private var sessions: [StudentSession] = []
+    @State private var sheet: SessionSheet?
 
     var body: some View {
         let current = WeekCalendar.week(of: .now)
         let missing = progress.filter { !$0.hasReported(in: current) }
 
-        if progress.isEmpty {
-            ContentUnavailableView {
-                Label("No students yet", systemImage: "person.3")
-            } description: {
-                Text("Add students one by one, or import a student list (.xlsx) from the toolbar.")
-            } actions: {
-                Button("Add Student…", action: onAdd)
-            }
-        } else {
-            ScrollView {
-                VStack(alignment: .leading, spacing: 24) {
-                    HStack(spacing: 16) {
+        Group {
+            if progress.isEmpty {
+                ContentUnavailableView {
+                    Label("No students yet", systemImage: "person.3")
+                } description: {
+                    Text("Add students one by one, or import a student list (.xlsx) from the toolbar.")
+                } actions: {
+                    Button("Add Student…", action: onAdd)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(alignment: .center, spacing: 12) {
                         StatTile(title: "Reported this week", value: "\(progress.count - missing.count)/\(progress.count)")
                         StatTile(title: "Not reported yet", value: "\(missing.count)")
-                    }
-
-                    if !missing.isEmpty {
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text("Not reported this week").font(.headline)
-                            FlowList(students: missing, onSelect: onSelect)
+                        if !missing.isEmpty {
+                            MissingList(students: missing, onSelect: onSelect)
                         }
                     }
-
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Reports per day").font(.headline)
-                        ReportCalendar(progress: progress)
-                    }
-                }
-                .padding(24)
-                .frame(maxWidth: .infinity, alignment: .leading)
-            }
-        }
-    }
-}
-
-/// The group's calendar: each day shows how many students reported that day.
-private struct ReportCalendar: View {
-    let progress: [StudentProgress]
-
-    var body: some View {
-        let counts = WeekCalendar.studentsPerDay(progress)
-        CalendarView(dates: Array(counts.keys)) { start in
-            ForEach(0..<7, id: \.self) { offset in
-                let day = WeekCalendar.calendar.date(byAdding: .day, value: offset, to: start)!
-                if let n = counts[day] {
-                    HStack {
-                        Text(day, format: .dateTime.weekday(.abbreviated).day()).font(.caption)
-                        Spacer()
-                        Text("\(n)").font(.caption.bold().monospacedDigit())
-                    }
-                    .padding(.horizontal, 7)
-                    .padding(.vertical, 3)
-                    .background(Color.secondary.opacity(0.12), in: .capsule)
-                    .help(Self.help(n))
+                    .padding(16)
+                    SessionBoard(sessions: sessions, students: progress.map(\.student), showsStudent: true,
+                                 sheet: $sheet, onOpenStudent: onSelect)
                 }
             }
-        } day: { day in
-            if let n = counts[day] {
-                Text("\(n)")
-                    .font(.title2.bold().monospacedDigit())
-                    .foregroundStyle(Color.accentColor)
-                    .frame(maxWidth: .infinity)
-                    .help(Self.help(n))
-            }
+        }
+        .toolbar {
+            Button("New Note", systemImage: "square.and.pencil") { sheet = .newNote(on: .now, studentID: nil) }
+                .disabled(progress.isEmpty)
+                .help("Write a note about a student's progress")
+        }
+        .onAppear { sessions = (try? db.sessions(groupId: groupID)) ?? [] }
+        .task {
+            do {
+                for try await value in db.observeSessions(groupId: groupID) { sessions = value }
+            } catch {}
         }
     }
-
-    private static func help(_ n: Int) -> String { n == 1 ? "1 student reported" : "\(n) students reported" }
 }
 
 private struct StatTile: View {
     let title: String
     let value: String
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(value).font(.largeTitle.monospacedDigit().bold())
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value).font(.title.monospacedDigit().bold())
             Text(title).font(.caption).foregroundStyle(.secondary)
         }
-        .padding()
-        .frame(minWidth: 160, alignment: .leading)
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(minWidth: 140, alignment: .leading)
         .background(.quaternary.opacity(0.5), in: .rect(cornerRadius: 10))
     }
 }
 
-private struct FlowList: View {
+/// Students who haven't reported this week, on one line that scrolls sideways.
+private struct MissingList: View {
     let students: [StudentProgress]
     var onSelect: (Int64) -> Void
+
     var body: some View {
-        LazyVGrid(columns: [GridItem(.adaptive(minimum: 180), alignment: .leading)], alignment: .leading, spacing: 6) {
-            ForEach(students) { s in
-                Button(s.student.fullName) { onSelect(s.id) }.buttonStyle(.link)
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Not reported this week").font(.caption.bold()).foregroundStyle(.secondary)
+            ScrollView(.horizontal) {
+                HStack(spacing: 6) {
+                    ForEach(students) { s in
+                        Button("\(s.student.emoji) \(s.student.fullName)") { onSelect(s.id) }
+                            .buttonStyle(.bordered)
+                            .buttonBorderShape(.capsule)
+                            .controlSize(.small)
+                    }
+                }
             }
+            .scrollIndicators(.never)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }

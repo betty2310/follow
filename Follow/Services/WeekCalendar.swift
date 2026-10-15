@@ -27,18 +27,18 @@ enum WeekCalendar {
 }
 
 extension WeekCalendar {
-    /// Mondays of the weeks to show in a calendar strip, oldest first: from the earliest of `dates`
-    /// (or `minimumCount - 1` weeks before `now`, whichever is earlier) through the week of `now` or the latest date.
-    static func weekStarts(covering dates: [Date], now: Date = .now, minimumCount: Int = 8) -> [Date] {
-        let thisMonday = startOfWeek(now)
-        let floor = calendar.date(byAdding: .weekOfYear, value: -(max(minimumCount, 1) - 1), to: thisMonday)!
-        let first = min(dates.min().map(startOfWeek) ?? floor, floor)
-        let last = max(dates.max().map(startOfWeek) ?? thisMonday, thisMonday)
+    /// Every day (00:00) of the day board (D36), oldest first: from the earliest of `dates`
+    /// (or `minimumCount - 1` days before `now`, whichever is earlier) through today or the latest date.
+    static func days(covering dates: [Date], now: Date = .now, minimumCount: Int = 14) -> [Date] {
+        let today = calendar.startOfDay(for: now)
+        let floor = calendar.date(byAdding: .day, value: -(max(minimumCount, 1) - 1), to: today)!
+        let first = min(dates.min().map(calendar.startOfDay) ?? floor, floor)
+        let last = max(dates.max().map(calendar.startOfDay) ?? today, today)
         var result: [Date] = []
-        var week = first
-        while week <= last {
-            result.append(week)
-            week = calendar.date(byAdding: .weekOfYear, value: 1, to: week)!
+        var day = first
+        while day <= last {
+            result.append(day)
+            day = calendar.date(byAdding: .day, value: 1, to: day)!
         }
         return result
     }
@@ -68,13 +68,10 @@ extension WeekCalendar {
 }
 
 extension WeekCalendar {
-    /// How many students reported on each day (keyed by the day's 00:00). A student with several sessions
-    /// on one day counts once; days without reports are absent.
-    static func studentsPerDay(_ progress: [StudentProgress]) -> [Date: Int] {
-        var counts: [Date: Int] = [:]
-        for p in progress {
-            for day in Set(p.sessionDates.map(calendar.startOfDay)) { counts[day, default: 0] += 1 }
-        }
-        return counts
+    /// How many students reported on each day (keyed by the day's 00:00), by a recording or a note.
+    /// A student with several sessions on one day counts once; days without reports are absent.
+    static func studentsPerDay(_ sessions: [StudentSession]) -> [Date: Int] {
+        Dictionary(grouping: sessions) { calendar.startOfDay(for: $0.session.date) }
+            .mapValues { Set($0.map(\.session.studentId)).count }
     }
 }

@@ -3,22 +3,21 @@
 ## Pipeline
 
 ```
+New Note ──────────────────────────────▶ Session (audioPath NULL, status: done, note)
+
 Record (AVAudioRecorder, .m4a)  ─┐
 Import audio file ───────────────┤
                                  ▼
                          Session (status: recorded)
-                                 │  TranscriptionEngine (Soniox | Gemini | Deepgram)
+                                 │  automatic: TranscriptionEngine (Soniox | Gemini | Deepgram)
                                  ▼
-                 Transcript: [Utterance(speaker: "A"/"B", text, start, end)]
-                                 │  SummarizationEngine (ClaudeCLISummarizer → `claude -p`)
+                 Transcript: [Utterance(speaker: "A"/"B", text, start, end)]   (status: done)
+                                 ┆  on demand ("Summarize with AI"): SummarizationEngine (`claude -p`)
                                  ▼
-          SummaryResult: teacherSpeaker ("A"/"B") + Vietnamese markdown summary
-                                 │
-                                 ▼
-                         Session (status: done)
+          SummaryResult: teacherSpeaker ("A"/"B") + Vietnamese markdown summary   (status: done)
 ```
 
-`SessionProcessor.process(sessionId:db:)` runs the pipeline off the main actor. It writes status and results to the DB at each step, and the UI updates through observations. Errors are stored on the session so the user can retry.
+A session is one **pin** on the day board (D36): a recording, or a text note (no audio). `SessionProcessor.transcribe(sessionId:db:)` runs after Stop; `SessionProcessor.summarize(sessionId:db:)` only when the teacher asks. Both run off the main actor, write status and results to the DB as they go, and the UI updates through observations. Errors are stored on the session so the user can retry.
 
 ## Layout
 
@@ -29,8 +28,8 @@ Follow/
   Engines/
     Transcription/  TranscriptionEngine protocol + providers
     Summarization/  SummarizationEngine protocol + ClaudeCLISummarizer
-  Services/       AudioRecorder, SessionProcessor, StudentImporter (xlsx), APIKeys, WeekCalendar, AppUpdater (Sparkle), RenameMigration (one-time move from the old ProjectRecord name, D32)
-  Views/          SwiftUI views: ContentView (sidebar + SidebarItem routing), DashboardView (report calendar), ImportStudentsView, StudentDetailView (SessionCalendarView + SessionDetailView, SessionEditView sheet, SessionNotesView inspector), CalendarView (shared Week/Month calendar), SettingsView (⌘, window)
+  Services/       AudioRecorder, AudioPlayer (session dialog), SessionProcessor, StudentImporter (xlsx), APIKeys, WeekCalendar, AppUpdater (Sparkle), RenameMigration (one-time move from the old ProjectRecord name, D32)
+  Views/          SwiftUI views: ContentView (sidebar + SidebarItem routing), DashboardView (stats + day board), StudentDetailView (title + day board, SessionNotesView inspector), SessionBoard (D36 day board: Days/Month, pins, context menu, SessionActions), SessionDetailSheet (pin dialog), NoteComposerView (new note), MonthGrid, ImportStudentsView, SettingsView (⌘, window)
 FollowTests/
   Fixtures/       Sample files with fake data (never commit real student data)
 ```
@@ -43,7 +42,7 @@ File: `~/Documents/Follow/Follow.sqlite`. Open it with any SQLite viewer.
 |---|---|
 | `studentGroup` | `id`, `name`, `createdAt`, `archivedAt` (null = active) |
 | `student` | `id`, `groupId` → studentGroup (cascade), `mssv`, `fullName`, `className`, `projectTitle`, `email`; unique (`groupId`, `mssv`) |
-| `session` | `id`, `studentId` → student (cascade), `date`, `audioPath`, `status`, `errorMessage`, `transcriptEngine`, `utterances` (JSON), `teacherSpeaker`, `summaryMarkdown`, `note` (teacher's own note, D29) |
+| `session` | `id`, `studentId` → student (cascade), `date`, `audioPath` (NULL = text note, D36), `status`, `errorMessage`, `transcriptEngine`, `utterances` (JSON), `teacherSpeaker`, `summaryMarkdown`, `note` (teacher's own note, D29) |
 
 Rules:
 - **Only `AppDatabase` touches SQL.** Views read with `db.observeX()` inside `.task { for try await … }` and write with `AppDatabase` methods.

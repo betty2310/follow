@@ -98,12 +98,14 @@ enum SessionStatus: String, Codable, Sendable {
     case recording, recorded, transcribing, summarizing, done, failed
 }
 
+/// One pin on the day board (D36): a recording (audio → transcript → optional summary) or, when
+/// `audioPath` is nil, a text note the teacher typed. Either one counts as the student reporting that day.
 struct Session: Codable, Hashable, Identifiable, Sendable, MutablePersistableRecord, LocalTimestampRecord {
     var id: Int64?
     var studentId: Int64
     var date: Date
-    /// Path relative to `AppPaths.root`.
-    var audioPath: String
+    /// Path relative to `AppPaths.root`; nil for a text note.
+    var audioPath: String?
     var status: SessionStatus = .recorded
     var errorMessage: String?
     var transcriptEngine: String?
@@ -112,7 +114,8 @@ struct Session: Codable, Hashable, Identifiable, Sendable, MutablePersistableRec
     /// "A" / "B": which diarized speaker is the teacher (inferred by the summarizer, swappable in UI).
     var teacherSpeaker: String?
     var summaryMarkdown: String?
-    /// The teacher's own free-text note, typed on the session page. Not used by the pipeline (D29).
+    /// The teacher's own free text: the whole content of a text note, an extra note on a recording.
+    /// Not used by the pipeline (D29).
     var note: String = ""
 
     mutating func didInsert(_ inserted: InsertionSuccess) { id = inserted.rowID }
@@ -124,6 +127,34 @@ struct Session: Codable, Hashable, Identifiable, Sendable, MutablePersistableRec
 }
 
 extension Session {
+    var hasAudio: Bool { audioPath != nil }
+
+    /// A recording can be transcribed (again) once recording stopped and nothing else is running.
+    var canTranscribe: Bool { hasAudio && [.recorded, .failed, .done].contains(status) }
+
+    /// Summarizing is on demand (D36) and needs a transcript.
+    var canSummarize: Bool { !utterances.isEmpty && [.failed, .done].contains(status) }
+
+    /// "Transcribed" / "Summarized" for a finished recording, otherwise the pipeline status.
+    var statusLabel: String {
+        guard status == .done else { return status.label }
+        return summaryMarkdown?.isEmpty == false ? "Summarized" : "Transcribed"
+    }
+
+    /// The few lines a pin shows: a text note's text; for a recording its summary (headings and
+    /// bullets stripped), else its note, else the start of the transcript. Empty when there's nothing yet.
+    var preview: String {
+        if let summary = summaryMarkdown, !summary.isEmpty {
+            return summary.components(separatedBy: .newlines)
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty && !$0.hasPrefix("#") }
+                .map { $0.hasPrefix("- ") || $0.hasPrefix("* ") ? String($0.dropFirst(2)) : $0 }
+                .joined(separator: "\n")
+        }
+        if !note.isEmpty { return note }
+        return utterances.prefix(6).map(\.text).joined(separator: " ")
+    }
+
     /// Diarized speaker labels in order of first appearance ("A", "B", …).
     var speakers: [String] {
         var seen: [String] = []
@@ -154,6 +185,13 @@ struct Utterance: Codable, Hashable, Sendable {
     var start: TimeInterval
     /// Seconds from the start of the recording.
     var end: TimeInterval
+}
+
+/// A session with its student, for boards that show several students' pins (the group dashboard).
+struct StudentSession: Hashable, Identifiable, Sendable {
+    var session: Session
+    var student: Student
+    var id: Int64 { session.id! }
 }
 
 /// A student plus the dates of their sessions: enough for the sidebar ✓ and the dashboard grid.

@@ -31,16 +31,20 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 
 ## M4: Summarization
 - [~] `ClaudeCLISummarizer` (`claude -p`), prompt + JSON parsing
+- [x] Summarize on demand (**Summarize with AI**), transcription alone runs automatically; Set Teacher without a summary (D36)
 - [x] Teacher/Student labels in the transcript view + swap button (`SessionDetailView`)
 - [x] Editable summary (markdown) in the session edit sheet; re-run button (D29)
 
 ## M5: Progress
 - [~] Dashboard: this-week stats, not-reported list, calendar with the number of students reported per day (`DashboardView`, D26)
-- [x] Student page: week calendar strip of sessions + detail of the selected session (`SessionCalendarView`, `SessionDetailView`, D23)
+- [x] ~~Student page: week calendar strip of sessions + detail of the selected session (D23)~~ replaced by the day board (D36)
+- [x] Day board on the student page and group dashboard: every day oldest → today, pins per day, Days / Month switch (`SessionBoard`, D36)
+- [x] Text notes as their own pins (session without audio), New Note composer, + on a day (`NoteComposerView`, D36)
+- [x] Pin dialog: editable date, audio player (play from a transcript line), note, summary, transcript; right-click actions (`SessionDetailSheet`, D36)
 - [x] Calendar follows the selected session; session sections as cards, summary and transcript side by side when wide; Record as the primary toolbar button; cross-fade between students (D33)
-- [x] Week / Month switch on the student calendar (D24)
+- [x] Week / Month switch on the student calendar (D24; Week became Days in D36)
 - [ ] Previous week's summary shown while recording
-- [x] Session edit (date, summary) / delete (recording to Trash), a note box per session, Notes inspector on the student page (`SessionEditView`, `SessionNotesView`, D29)
+- [x] Session edit (date, summary) / delete (recording to Trash), a note box per session, Notes inspector on the student page (`SessionNotesView`, D29; editing moved into the pin dialog, D36)
 
 ## Delivery
 - [x] CI/CD: tests on PRs, build on `main`, GitHub Release on `v*` tags (D27)

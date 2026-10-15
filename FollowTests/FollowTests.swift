@@ -193,6 +193,7 @@ struct AppDatabaseTests {
         for (i, p) in try db.progress(groupId: drop).enumerated() {
             _ = try db.insertSession(Session(studentId: p.id, date: .now, audioPath: "audio/Drop/\(i).m4a"))
         }
+        _ = try db.addNote(studentId: db.progress(groupId: drop)[0].id, date: .now, text: "Chỉ ghi chú")
         _ = try db.insertSession(Session(studentId: db.progress(groupId: keep)[0].id, date: .now, audioPath: "audio/Keep/0.m4a"))
 
         #expect(try db.deleteGroup(id: drop).sorted() == ["audio/Drop/0.m4a", "audio/Drop/1.m4a"])
@@ -254,6 +255,59 @@ struct AppDatabaseTests {
         }
         let db = try AppDatabase(queue)
         #expect(try db.session(id: 1)?.note == "")
+    }
+
+    @Test func textNoteIsASessionWithoutAudioThatCountsAsReported() throws {
+        let db = try AppDatabase.inMemory()
+        let g = try db.importStudents([row("1", "An")], intoNewGroupNamed: "A")
+        let studentID = try db.progress(groupId: g)[0].id
+        #expect(try db.addNote(studentId: studentID, date: .now, text: "  \n ") == nil)
+
+        let note = try #require(try db.addNote(studentId: studentID, date: .now, text: "  Đã xong phần login.\n"))
+        #expect(note.audioPath == nil && !note.hasAudio)
+        #expect(note.note == "Đã xong phần login.")
+        #expect(!note.canTranscribe && !note.canSummarize)
+        #expect(try db.progress(groupId: g)[0].hasReported(in: WeekCalendar.week(of: .now)))
+        #expect(try db.deleteSession(id: note.id!) == nil)
+        #expect(try db.sessions(studentId: studentID).isEmpty)
+    }
+
+    @Test func groupSessionsCarryTheirStudentOldestFirst() throws {
+        let db = try AppDatabase.inMemory()
+        let g = try db.importStudents([row("1", "An"), row("2", "Bình")], intoNewGroupNamed: "A")
+        let other = try db.importStudents([row("3", "Cường")], intoNewGroupNamed: "B")
+        let (an, binh) = try (db.progress(groupId: g)[0].id, db.progress(groupId: g)[1].id)
+        let date = Date.now
+        _ = try db.addNote(studentId: binh, date: date, text: "Sau")
+        _ = try db.insertSession(Session(studentId: an, date: date.addingTimeInterval(-60), audioPath: "a.m4a"))
+        _ = try db.addNote(studentId: db.progress(groupId: other)[0].id, date: date, text: "Nhóm khác")
+
+        let sessions = try db.sessions(groupId: g)
+        #expect(sessions.map(\.student.fullName) == ["An", "Bình"])
+        #expect(sessions.map(\.session.hasAudio) == [true, false])
+    }
+
+    @Test func migrationMakesAudioOptionalAndKeepsSessions() throws {
+        let queue = try DatabaseQueue()
+        try AppDatabase.migrator.migrate(queue, upTo: "v5-student-emoji")
+        let date = DBTimestamp.string(.now)
+        try queue.write { db in
+            try db.execute(sql: "INSERT INTO studentGroup (id, name, createdAt) VALUES (1, 'A', ?)", arguments: [date])
+            try db.execute(sql: "INSERT INTO student (id, groupId, mssv, fullName) VALUES (1, 1, '1', 'An')")
+            try db.execute(sql: """
+                INSERT INTO session (id, studentId, date, audioPath, status, utterances, teacherSpeaker, summaryMarkdown, note)
+                VALUES (7, 1, ?, 'audio/A/1/x.m4a', 'done', '[{"speaker":"A","text":"Chào em","start":0,"end":1}]', 'A', '## Đã làm được', 'Ghi chú')
+                """, arguments: [date])
+        }
+        let db = try AppDatabase(queue)
+        let kept = try #require(try db.session(id: 7))
+        #expect(kept.audioPath == "audio/A/1/x.m4a")
+        #expect(kept.utterances.first?.text == "Chào em")
+        #expect(kept.summaryMarkdown == "## Đã làm được" && kept.note == "Ghi chú" && kept.teacherSpeaker == "A")
+        #expect(try db.addNote(studentId: 1, date: .now, text: "Mới")?.audioPath == nil)
+        // The student → session cascade survives the table copy.
+        try db.writer.write { try $0.execute(sql: "DELETE FROM student") }
+        #expect(try db.writer.read { try Session.fetchCount($0) } == 0)
     }
 
     @Test func migrationDropsSessionProjectTitleFromEarlyDevBuild() throws {
@@ -362,24 +416,34 @@ struct SonioxEngineTests {
     }
 }
 
-struct SessionCalendarTests {
+struct DayBoardTests {
     private func date(_ s: String) -> Date { DBTimestamp.date(s)! }
 
-    @Test func showsAtLeastMinimumWeeksEndingThisWeek() {
-        let now = date("2026-09-30 10:00:00.000+07:00") // Wednesday
-        let weeks = WeekCalendar.weekStarts(covering: [], now: now, minimumCount: 3)
-        #expect(weeks.count == 3)
-        #expect(weeks.last == WeekCalendar.startOfWeek(now))
-        #expect(weeks.allSatisfy { WeekCalendar.calendar.component(.weekday, from: $0) == 2 }) // Mondays
+    @Test func showsAtLeastMinimumDaysEndingToday() {
+        let now = date("2026-09-30 10:00:00.000+07:00")
+        let days = WeekCalendar.days(covering: [], now: now, minimumCount: 3)
+        let cal = WeekCalendar.calendar
+        #expect(days.count == 3)
+        #expect(days.last == cal.startOfDay(for: now))
+        #expect(days.allSatisfy { $0 == cal.startOfDay(for: $0) })
     }
 
-    @Test func extendsBackToOldestSession() {
+    @Test func coversEveryDayFromTheOldestSession() {
         let now = date("2026-09-30 10:00:00.000+07:00")
-        let old = date("2026-06-03 09:00:00.000+07:00")
-        let weeks = WeekCalendar.weekStarts(covering: [old, now], now: now, minimumCount: 2)
-        #expect(weeks.first == WeekCalendar.startOfWeek(old))
-        #expect(weeks.last == WeekCalendar.startOfWeek(now))
-        #expect(Set(weeks).count == weeks.count)
+        let old = date("2026-09-01 09:00:00.000+07:00")
+        let days = WeekCalendar.days(covering: [old, now], now: now, minimumCount: 2)
+        #expect(days.first == WeekCalendar.calendar.startOfDay(for: old))
+        #expect(days.count == 30)
+        #expect(Set(days).count == days.count)
+    }
+
+    @Test func newNoteIsNowTodayAndMiddayOnOtherDays() {
+        let now = date("2026-09-30 10:37:00.000+07:00")
+        let cal = WeekCalendar.calendar
+        #expect(SessionSheet.newNote(on: cal.startOfDay(for: now), studentID: 1, now: now) == .newNote(date: now, studentID: 1))
+        let earlier = cal.startOfDay(for: date("2026-09-28 08:00:00.000+07:00"))
+        #expect(SessionSheet.newNote(on: earlier, studentID: nil, now: now)
+                == .newNote(date: date("2026-09-28 12:00:00.000+07:00"), studentID: nil))
     }
 }
 
@@ -406,17 +470,18 @@ struct MonthGridTests {
 
 struct ReportCountTests {
     private func date(_ s: String) -> Date { DBTimestamp.date(s)! }
-    private func progress(_ id: Int64, _ dates: [String]) -> StudentProgress {
-        StudentProgress(student: Student(id: id, groupId: 1, mssv: "\(id)", fullName: "S\(id)", className: "", projectTitle: "", email: ""),
-                        sessionDates: dates.map(date))
+    private func sessions(_ id: Int64, _ dates: [String]) -> [StudentSession] {
+        let student = Student(id: id, groupId: 1, mssv: "\(id)", fullName: "S\(id)", className: "", projectTitle: "", email: "")
+        return dates.enumerated().map { i, d in
+            StudentSession(session: Session(id: id * 100 + Int64(i), studentId: id, date: date(d), audioPath: nil), student: student)
+        }
     }
 
     @Test func countsEachStudentOncePerDay() {
-        let counts = WeekCalendar.studentsPerDay([
-            progress(1, ["2026-09-28 09:00:00.000+07:00", "2026-09-28 15:00:00.000+07:00", "2026-09-30 10:00:00.000+07:00"]),
-            progress(2, ["2026-09-28 23:59:00.000+07:00"]),
-            progress(3, []),
-        ])
+        let counts = WeekCalendar.studentsPerDay(
+            sessions(1, ["2026-09-28 09:00:00.000+07:00", "2026-09-28 15:00:00.000+07:00", "2026-09-30 10:00:00.000+07:00"])
+            + sessions(2, ["2026-09-28 23:59:00.000+07:00"])
+        )
         let cal = WeekCalendar.calendar
         #expect(counts[cal.startOfDay(for: date("2026-09-28 12:00:00.000+07:00"))] == 2)
         #expect(counts[cal.startOfDay(for: date("2026-09-30 12:00:00.000+07:00"))] == 1)
@@ -446,6 +511,86 @@ struct SpeakerRoleTests {
     @Test func swapPicksTheOtherSpeaker() {
         #expect(session(teacher: "A").swappedTeacherSpeaker == "B")
         #expect(session(teacher: "B").swappedTeacherSpeaker == "A")
+    }
+}
+
+struct PinTests {
+    @Test func previewPrefersSummaryThenNoteThenTranscript() {
+        var s = Session(studentId: 1, date: .now, audioPath: "a.m4a", status: .done)
+        #expect(s.preview.isEmpty)
+        #expect(s.statusLabel == "Transcribed")
+        s.utterances = [Utterance(speaker: "A", text: "Chào em", start: 0, end: 1),
+                        Utterance(speaker: "B", text: "Dạ", start: 1, end: 2)]
+        #expect(s.preview == "Chào em Dạ")
+        s.note = "Nhớ hỏi DB"
+        #expect(s.preview == "Nhớ hỏi DB")
+        s.summaryMarkdown = "## Đã làm được\n- Xong login\n\n## Vấn đề gặp phải\n* Chậm"
+        #expect(s.preview == "Xong login\nChậm")
+        #expect(s.statusLabel == "Summarized")
+    }
+
+    @Test func summarizeNeedsATranscriptAndAnIdleSession() {
+        var s = Session(studentId: 1, date: .now, audioPath: "a.m4a", status: .done)
+        #expect(s.canTranscribe && !s.canSummarize)
+        s.utterances = [Utterance(speaker: "A", text: "x", start: 0, end: 1)]
+        #expect(s.canSummarize)
+        s.status = .transcribing
+        #expect(!s.canTranscribe && !s.canSummarize)
+        s.status = .recording
+        #expect(!s.canTranscribe)
+    }
+}
+
+struct SessionProcessorTests {
+    struct FakeTranscriber: TranscriptionEngine {
+        var id = "fake"
+        var displayName = "Fake"
+        var utterances: [Utterance]
+        func transcribe(audioURL: URL, language: String) async throws -> [Utterance] { utterances }
+    }
+
+    struct FakeSummarizer: SummarizationEngine {
+        func summarize(utterances: [Utterance], student: StudentInfo) async throws -> SummaryResult {
+            SummaryResult(teacherSpeaker: "B", summaryMarkdown: "## Đã làm được\n- \(student.fullName)")
+        }
+    }
+
+    private func recordedSession() throws -> (AppDatabase, Int64) {
+        let db = try AppDatabase.inMemory()
+        let g = try db.importStudents([.init(mssv: "1", fullName: "An", className: "", projectTitle: "", email: "")],
+                                      intoNewGroupNamed: "A")
+        let s = try db.insertSession(Session(studentId: db.progress(groupId: g)[0].id, date: .now, audioPath: "a.m4a"))
+        return (db, s.id!)
+    }
+
+    @Test func transcribingDoesNotSummarize() async throws {
+        let (db, id) = try recordedSession()
+        let lines = [Utterance(speaker: "A", text: "Chào em", start: 0, end: 1)]
+        await SessionProcessor.transcribe(sessionId: id, db: db, engine: FakeTranscriber(utterances: lines))
+        let s = try #require(try db.session(id: id))
+        #expect(s.status == .done)
+        #expect(s.utterances == lines && s.transcriptEngine == "fake")
+        #expect(s.summaryMarkdown == nil && s.teacherSpeaker == nil)
+    }
+
+    @Test func summarizeOnRequestFillsSummaryAndTeacher() async throws {
+        let (db, id) = try recordedSession()
+        await SessionProcessor.summarize(sessionId: id, db: db, summarizer: FakeSummarizer())
+        #expect(try db.session(id: id)?.summaryMarkdown == nil) // no transcript yet: nothing to do
+
+        let lines = [Utterance(speaker: "A", text: "Dạ", start: 0, end: 1), Utterance(speaker: "B", text: "Ừ", start: 1, end: 2)]
+        await SessionProcessor.transcribe(sessionId: id, db: db, engine: FakeTranscriber(utterances: lines))
+        await SessionProcessor.summarize(sessionId: id, db: db, summarizer: FakeSummarizer())
+        let s = try #require(try db.session(id: id))
+        #expect(s.status == .done)
+        #expect(s.summaryMarkdown == "## Đã làm được\n- An")
+        #expect(s.teacherSpeaker == "B")
+
+        // Transcribing again keeps the summary, and the teacher while that label still exists.
+        await SessionProcessor.transcribe(sessionId: id, db: db, engine: FakeTranscriber(utterances: [lines[0]]))
+        let again = try #require(try db.session(id: id))
+        #expect(again.summaryMarkdown == "## Đã làm được\n- An")
+        #expect(again.teacherSpeaker == nil)
     }
 }
 

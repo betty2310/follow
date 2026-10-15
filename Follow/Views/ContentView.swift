@@ -242,7 +242,8 @@ struct ContentView: View {
         switch selection {
         case .group(let id):
             let g = groups.first { $0.id == id }
-            DashboardView(progress: g?.students ?? [], onAdd: { adding = true }) { selection = .student($0) }
+            DashboardView(groupID: id, progress: g?.students ?? [], onAdd: { adding = true }) { selection = .student($0) }
+                .id(id)
                 .navigationTitle(g?.group.name ?? "Dashboard")
                 .navigationSubtitle(g?.group.isArchived == true ? "Archived" : "")
         case .student(let id):
