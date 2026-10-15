@@ -15,6 +15,7 @@ struct ContentView: View {
     @State private var search = ""
     @State private var importing = false
     @State private var adding = false
+    @State private var editing: Student?
     @State private var naming: GroupNaming?
     @State private var nameDraft = ""
     @State private var deleting: GroupProgress?
@@ -87,9 +88,15 @@ struct ContentView: View {
             }
         }
         .sheet(isPresented: $adding) {
-            AddStudentView(groups: groups.map(\.group), defaultGroupID: currentGroup?.id) { student in
+            StudentFormView(groups: groups.map(\.group), defaultGroupID: currentGroup?.id) { student in
                 setCollapsed([student.groupId], false)
                 selection = student.id.map { .student($0) }
+            }
+        }
+        .sheet(item: $editing) { s in
+            StudentFormView(groups: groups.map(\.group), defaultGroupID: nil, student: s) { student in
+                // A student moved to a collapsed group stays visible.
+                if selection == student.id.map({ .student($0) }) { setCollapsed([student.groupId], false) }
             }
         }
         .alert(naming?.title ?? "", isPresented: isPresent($naming), presenting: naming) { n in
@@ -175,6 +182,9 @@ struct ContentView: View {
             Button("Delete…", role: .destructive) { deleting = g }
             Divider()
             Button("New Group…") { startNaming(nil) }
+        } else if items.count == 1, case .student(let id) = items.first,
+                  let s = groups.lazy.flatMap(\.students).first(where: { $0.id == id })?.student {
+            Button("Edit Student…") { editing = s }
         }
     }
 

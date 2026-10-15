@@ -29,7 +29,7 @@ Follow/
     Transcription/  TranscriptionEngine protocol + providers
     Summarization/  SummarizationEngine protocol + ClaudeCLISummarizer
   Services/       AudioRecorder, AudioPlayer (session dialog), SessionProcessor, StudentImporter (xlsx), APIKeys, WeekCalendar, AppUpdater (Sparkle), RenameMigration (one-time move from the old ProjectRecord name, D32)
-  Views/          SwiftUI views: ContentView (sidebar + SidebarItem routing), DashboardView (stats + day board), StudentDetailView (title + day board, SessionNotesView inspector), SessionBoard (D36 day board: Days/Month, pins, context menu, SessionActions), SessionDetailSheet (pin dialog), NoteComposerView (new note), MonthGrid, ImportStudentsView, SettingsView (⌘, window)
+  Views/          SwiftUI views: ContentView (sidebar + SidebarItem routing), DashboardView (stats + day board), StudentDetailView (title + day board, SessionNotesView inspector), SessionBoard (D36 day board: Days/Month, pins, context menu, SessionActions), SessionDetailSheet (pin dialog), NoteComposerView (new note), MonthGrid, ImportStudentsView, StudentFormView (add / edit student), SettingsView (⌘, window)
 FollowTests/
   Fixtures/       Sample files with fake data (never commit real student data)
 ```

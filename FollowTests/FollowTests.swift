@@ -126,6 +126,30 @@ struct AppDatabaseTests {
         #expect(try db.progress(groupId: g2).count == 1)
     }
 
+    @Test func editStudentKeepsEmojiAndRefusesAnotherStudentsMSSV() throws {
+        let db = try AppDatabase.inMemory()
+        let g1 = try db.importStudents([row("1", "An", project: "Old"), row("2", "Bình")], intoNewGroupNamed: "A")
+        let g2 = try db.importStudents([row("3", "Chi")], intoNewGroupNamed: "B")
+        let an = try #require(db.progress(groupId: g1).first?.student)
+        let session = try db.addNote(studentId: an.id!, date: .now, text: "Hi")
+
+        // Keeping its own MSSV is fine; the emoji stays.
+        let edited = try db.updateStudent(id: an.id!, row("1", "An Nguyễn", project: "Chat app"), groupId: g1)
+        #expect(edited.fullName == "An Nguyễn" && edited.projectTitle == "Chat app" && edited.emoji == an.emoji)
+
+        #expect(throws: AppDatabase.AddStudentError.duplicateMSSV("2", existingName: "Bình")) {
+            try db.updateStudent(id: an.id!, row("2", "An"), groupId: g1)
+        }
+        #expect(throws: AppDatabase.AddStudentError.duplicateMSSV("3", existingName: "Chi")) {
+            try db.updateStudent(id: an.id!, row("3", "An"), groupId: g2)
+        }
+
+        // Moving to another group takes the sessions along.
+        try db.updateStudent(id: an.id!, row("1", "An"), groupId: g2)
+        #expect(try db.progress(groupId: g2).map(\.student.mssv) == ["1", "3"])
+        #expect(try db.sessions(groupId: g2).map(\.session.id) == [session?.id])
+    }
+
     @Test func newStudentsGetDistinctAnimalsAndCanChangeThem() throws {
         let db = try AppDatabase.inMemory()
         let rows = (1...10).map { row("\($0)", "S\($0)") }

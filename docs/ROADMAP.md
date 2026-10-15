@@ -12,9 +12,9 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 - [x] Import sheet: instructions, column mapping (auto-guess + manual), target group (existing/new), new/updated preview, name normalization (`ImportStudentsView`, `StudentImporter`)
 - [x] Sidebar: search, every group as a collapsible row with its students (folder icon, double-click toggles), group dashboard (D26)
 - [x] Group management: new, rename, archive/unarchive, delete with confirmation (right-click menu), hide/show students (D25)
-- [x] Add one student by hand: name + MSSV, optional email and project title (`AddStudentView`, D34)
+- [x] Add one student by hand: name + MSSV, optional email and project title (`StudentFormView`, D34)
 - [x] Random animal emoji per student, click to change (`StudentEmojiButton`, D35)
-- [~] Edit a student's details: project title box on the student page (D29)
+- [x] Edit a student's details: right-click → Edit Student… (group, name, MSSV, email, project title; D37), plus the project title box on the student page (D29)
 
 ## M2: Recording
 - [~] Record / stop with the Mac microphone → `.m4a` (`AudioRecorder`)

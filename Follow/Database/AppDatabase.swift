@@ -286,6 +286,27 @@ extension AppDatabase {
         }
     }
 
+    /// Saves the Edit Student form (D37). Keeps the class name and emoji; moving the student to another group
+    /// takes their sessions along. Refused when another student of the target group has the MSSV.
+    @discardableResult
+    func updateStudent(id: Int64, _ row: StudentImporter.Row, groupId: Int64) throws -> Student {
+        try writer.write { db in
+            if let existing = try Student
+                .filter(Student.Columns.groupId == groupId && Student.Columns.mssv == row.mssv)
+                .fetchOne(db), existing.id != id {
+                throw AddStudentError.duplicateMSSV(row.mssv, existingName: existing.fullName)
+            }
+            var student = try Student.find(db, id: id)
+            student.groupId = groupId
+            student.mssv = row.mssv
+            student.fullName = row.fullName
+            student.projectTitle = row.projectTitle
+            student.email = row.email
+            try student.update(db)
+            return student
+        }
+    }
+
     /// What `importStudents` would do, without writing. `groupId == nil` means a new group.
     func planImport(_ rows: [StudentImporter.Row], into groupId: Int64?) throws -> ImportPlan {
         try writer.read { db in try Self.apply(rows, groupId: groupId, db: db, dryRun: true) }

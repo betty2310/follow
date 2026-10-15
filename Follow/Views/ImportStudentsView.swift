@@ -97,6 +97,7 @@ struct ImportStudentsView: View {
             }
             if target == .new {
                 TextField("New group name", text: $newGroupName, prompt: Text("e.g. Đồ án 1 – 2025.1"))
+                    .multilineTextAlignment(.leading)
             }
         }
     }
