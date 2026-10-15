@@ -465,9 +465,10 @@ struct DayBoardTests {
         let now = date("2026-09-30 10:37:00.000+07:00")
         let cal = WeekCalendar.calendar
         #expect(SessionSheet.newNote(on: cal.startOfDay(for: now), studentID: 1, now: now) == .newNote(date: now, studentID: 1))
+        // Midday in the Mac's own time zone (UTC on CI), not a fixed offset.
         let earlier = cal.startOfDay(for: date("2026-09-28 08:00:00.000+07:00"))
-        #expect(SessionSheet.newNote(on: earlier, studentID: nil, now: now)
-                == .newNote(date: date("2026-09-28 12:00:00.000+07:00"), studentID: nil))
+        let midday = cal.date(bySettingHour: 12, minute: 0, second: 0, of: earlier)!
+        #expect(SessionSheet.newNote(on: earlier, studentID: nil, now: now) == .newNote(date: midday, studentID: nil))
     }
 }
 
