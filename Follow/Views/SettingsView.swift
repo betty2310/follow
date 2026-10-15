@@ -4,6 +4,7 @@ struct SettingsView: View {
     @AppStorage("claudeCLIPath") private var claudeCLIPath = AppSettings.claudeCLIPath
     @AppStorage("claudeModel") private var claudeModel = "sonnet"
     @AppStorage("transcriptionEngineID") private var engineID = "soniox"
+    @AppStorage("clawd.visible") private var showsClawd = true
     @State private var keys: [APIKey: String] = [:]
     @Environment(AppUpdater.self) private var updater
 
@@ -23,6 +24,9 @@ struct SettingsView: View {
             Section("Summarization (claude -p)") {
                 TextField("Claude CLI path", text: $claudeCLIPath)
                 TextField("Model", text: $claudeModel)
+            }
+            Section("Fun") {
+                Toggle("Show Clawd", isOn: $showsClawd)
             }
             Section("Updates") {
                 @Bindable var updater = updater

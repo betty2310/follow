@@ -721,3 +721,41 @@ struct RenameMigrationTests {
         #expect(APIKeys.get(.soniox, defaults: defaults) == nil)
     }
 }
+
+struct ClawdTests {
+    @Test func everyPoseHasTheSameSize() {
+        for arms in ClawdPose.Arms.allCases {
+            for eyes in ClawdPose.Eyes.allCases {
+                for legs in ClawdPose.Legs.allCases {
+                    for look in -2...2 {
+                        let pixels = ClawdPose(arms: arms, eyes: eyes, legs: legs, look: look).pixels
+                        #expect(pixels.count == ClawdPose.height)
+                        #expect(pixels.allSatisfy { $0.count == ClawdPose.width })
+                    }
+                }
+            }
+        }
+    }
+
+    @Test func openEyesAreHolesThatFollowTheLook() {
+        let ahead = ClawdPose().pixels
+        #expect(!ahead[2][5] && !ahead[2][12])
+        let right = ClawdPose(look: 1).pixels
+        #expect(!right[2][6] && !right[2][13] && right[2][5])
+        let asleep = ClawdPose(eyes: .closed).pixels
+        #expect(asleep[2][5] && asleep[2][12])
+    }
+
+    @Test func walkingLiftsAlternateLegs() {
+        let left = ClawdPose(legs: .left).pixels[9]
+        let right = ClawdPose(legs: .right).pixels[9]
+        #expect(left[4] && !left[6] && left[11] && !left[13])
+        #expect(!right[4] && right[6] && !right[11] && right[13])
+    }
+
+    @Test func neverRepeatsATrick() {
+        for trick in ClawdTrick.allCases {
+            for _ in 0..<20 { #expect(ClawdTrick.random(after: trick) != trick) }
+        }
+    }
+}

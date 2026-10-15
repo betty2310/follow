@@ -80,6 +80,8 @@ struct ContentView: View {
         } detail: {
             // Cross-fade between groups and students rather than swapping in one frame.
             detail.animation(.easeInOut(duration: 0.2), value: selection)
+                // Above the switch, so Clawd keeps its spot and what it's doing across pages (D38).
+                .overlay { ClawdPlayground() }
         }
         .sheet(isPresented: $importing) {
             ImportStudentsView(groups: groups.map(\.group), defaultGroupID: currentGroup?.id) { groupID in
