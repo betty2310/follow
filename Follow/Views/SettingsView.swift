@@ -7,6 +7,7 @@ struct SettingsView: View {
     @AppStorage("openAIBaseURL") private var openAIBaseURL = OpenAICompatibleSummarizer.defaultBaseURL
     @AppStorage("openAIModel") private var openAIModel = OpenAICompatibleSummarizer.defaultModel
     @AppStorage("cat.visible") private var showsCat = true
+    @AppStorage("cat.size") private var catSize = CatSprite.defaultSize
     @State private var keys: [APIKey: String] = [:]
     @Environment(AppUpdater.self) private var updater
 
@@ -35,6 +36,14 @@ struct SettingsView: View {
             }
             Section("Fun") {
                 Toggle("Show Cat", isOn: $showsCat)
+                Slider(value: $catSize, in: CatSprite.sizes, step: 1) {
+                    Text("Cat size")
+                } minimumValueLabel: {
+                    Image(systemName: "cat").imageScale(.small)
+                } maximumValueLabel: {
+                    Image(systemName: "cat").imageScale(.large)
+                }
+                CatPreview(pixel: catSize)
             }
             Section("Updates") {
                 @Bindable var updater = updater

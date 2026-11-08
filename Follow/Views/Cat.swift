@@ -7,6 +7,7 @@ import SwiftUI
 /// right-click to hide it (Settings brings it back).
 struct CatPlayground: View {
     @AppStorage("cat.visible") private var visible = true
+    @AppStorage("cat.size") private var catSize = CatSprite.defaultSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var area: CGSize = .zero
     @State private var position: CGPoint?
@@ -33,33 +34,37 @@ struct CatPlayground: View {
                     position = position.map(clamped)
                 }
                 .overlay(alignment: .topLeading) {
-                    if let position { cat.offset(x: position.x - Self.size.width / 2, y: position.y - Self.feet) }
+                    if let position { cat.offset(x: position.x - size.width / 2, y: position.y - feet) }
                 }
+                .onChange(of: catSize) { position = position.map(clamped) }
                 .task { await live() }
         }
     }
 
-    private static let pixel = CatSprite.pixel
-    private static let size = CGSize(width: CGFloat(CatPose.width) * pixel, height: CGFloat(CatPose.height) * pixel)
+    /// Points per pixel, from Settings → Fun.
+    private var pixel: CGFloat { CGFloat(catSize) }
+    private var size: CGSize { CGSize(width: CGFloat(CatPose.width) * pixel, height: CGFloat(CatPose.height) * pixel) }
     /// From the top of the frame to the bottom of the feet; `position` is the feet.
-    private static let feet = CGFloat(CatPose.groundRow + 2) * pixel
+    private var feet: CGFloat { CGFloat(CatPose.groundRow + 2) * pixel }
     /// The cat itself, the part that takes clicks; it is centered, so it stays put when the cat turns.
-    private static let hitBox = CGRect(x: (CGFloat(CatPose.width) / 2 - 17) * pixel, y: CGFloat(CatPose.origin.y + 2) * pixel,
-                                       width: 34 * pixel, height: 21 * pixel)
+    private var hitBox: CGRect {
+        CGRect(x: (CGFloat(CatPose.width) / 2 - 17) * pixel, y: CGFloat(CatPose.origin.y + 2) * pixel,
+               width: 34 * pixel, height: 21 * pixel)
+    }
 
     private var cat: some View {
-        CatSprite(pose: pose)
-            .offset(y: -CGFloat(pose.lift) * Self.pixel)
+        CatSprite(pose: pose, pixel: pixel)
+            .offset(y: -CGFloat(pose.lift) * pixel)
             .overlay(alignment: .bottom) {
                 if let speech {
                     SpeechBubble(text: speech)
                         .fixedSize()
-                        .offset(y: -(Self.size.height - CGFloat(CatPose.origin.y) * Self.pixel))
+                        .offset(y: -(size.height - CGFloat(CatPose.origin.y) * pixel))
                         .transition(.scale(scale: 0.4, anchor: .bottom).combined(with: .opacity))
                         .allowsHitTesting(false)
                 }
             }
-            .contentShape(Path(Self.hitBox))
+            .contentShape(Path(hitBox))
             .onTapGesture { queued = CatTrick.random(after: lastTrick) }
             .pointerStyle(.link)
             .contextMenu {
@@ -75,7 +80,7 @@ struct CatPlayground: View {
 
     /// The whole pane, less a margin; the top keeps room for a speech bubble.
     private var walkArea: CGRect {
-        let minX = Self.size.width / 2 + 4, minY = Self.feet + 20
+        let minX = size.width / 2 + 4, minY = feet + 20
         return CGRect(x: minX, y: minY,
                       width: max(area.width - 2 * minX, 0), height: max(area.height - 8 - minY, 0))
     }
@@ -577,12 +582,17 @@ struct CatPose: Equatable {
 }
 
 /// Draws a pose as pixels in the cat's own colors, so it looks like the app icon in light and dark mode.
-private struct CatSprite: View {
+struct CatSprite: View {
     let pose: CatPose
-    static let pixel: CGFloat = 3
+    /// Points per pixel.
+    let pixel: CGFloat
+
+    /// The sizes Settings offers, in points per pixel; whole numbers keep the pixels crisp.
+    static let sizes: ClosedRange<Double> = 2...6
+    static let defaultSize = 3.0
 
     var body: some View {
-        let p = Self.pixel
+        let p = pixel
         Canvas { context, _ in
             var paths: [CatInk: Path] = [:]
             for (r, row) in pose.pixels.enumerated() {
@@ -593,6 +603,36 @@ private struct CatSprite: View {
             for (ink, path) in paths { context.fill(path, with: .color(ink.color)) }
         }
         .frame(width: CGFloat(CatPose.width) * p, height: CGFloat(CatPose.height) * p)
+    }
+}
+
+/// The cat idling at a given size, for Settings: it blinks, looks around and swings its tail.
+/// The view is cropped to the cat, so its height follows the size.
+struct CatPreview: View {
+    let pixel: CGFloat
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    /// Rows from the tips of the ears to the bottom of the feet.
+    private static let rows = CatPose.groundRow + 2 - CatPose.origin.y
+
+    var body: some View {
+        TimelineView(.animation(minimumInterval: 1.0 / 20, paused: reduceMotion)) { context in
+            CatSprite(pose: reduceMotion ? CatPose() : Self.pose(at: context.date.timeIntervalSinceReferenceDate), pixel: pixel)
+                // The frame has one empty row under the feet.
+                .offset(y: pixel)
+        }
+        .frame(maxWidth: .infinity, alignment: .center)
+        .frame(height: CGFloat(Self.rows) * pixel, alignment: .bottom)
+        .clipped()
+        .padding(.bottom, 4)
+        .accessibilityElement()
+        .accessibilityLabel("Cat preview")
+    }
+
+    private static func pose(at t: Double) -> CatPose {
+        let blink = t.truncatingRemainder(dividingBy: 3.2) > 3.05
+        let look = [0, -1, 0, 1][Int(t / 2) % 4]
+        return CatPose(eyes: blink ? .blink : .open, look: look, sway: sin(t * 2) * 0.6)
     }
 }
 
