@@ -393,6 +393,18 @@ extension AppDatabase {
         }
     }
 
+    /// Deletes the student with their sessions (FK cascade). Returns the deleted sessions' audio paths
+    /// (relative to `AppPaths.root`) so the caller can move the files to the Trash.
+    @discardableResult
+    func deleteStudent(id: Int64) throws -> [String] {
+        try writer.write { db in
+            let paths = try String.fetchAll(db, sql: "SELECT audioPath FROM session WHERE studentId = ? AND audioPath IS NOT NULL",
+                                            arguments: [id])
+            try Student.deleteOne(db, id: id)
+            return paths
+        }
+    }
+
     /// Deletes the session. Returns its audio path (relative to `AppPaths.root`), if it has one,
     /// so the caller can remove the file.
     @discardableResult

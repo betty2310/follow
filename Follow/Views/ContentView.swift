@@ -19,6 +19,7 @@ struct ContentView: View {
     @State private var naming: GroupNaming?
     @State private var nameDraft = ""
     @State private var deleting: GroupProgress?
+    @State private var deletingStudent: StudentProgress?
     @State private var error: String?
     /// Comma-separated ids of groups whose students are hidden.
     @AppStorage("sidebar.collapsedGroups") private var collapsedRaw = ""
@@ -117,6 +118,16 @@ struct ContentView: View {
             let sessions = g.students.reduce(0) { $0 + $1.sessionDates.count }
             Text("This permanently deletes \(g.students.count) students and \(sessions) sessions (transcripts and summaries). Recordings are moved to the Trash.\n\nTo only hide the group from the sidebar, archive it instead.")
         }
+        .alert(deletingStudent.map { "Delete \($0.student.fullName)?" } ?? "", isPresented: isPresent($deletingStudent),
+               presenting: deletingStudent) { p in
+            Button("Delete", role: .destructive) { delete(p) }
+            Button("Cancel", role: .cancel) {}
+        } message: { p in
+            let n = p.sessionDates.count
+            Text(n == 0
+                 ? "This permanently deletes the student."
+                 : "This permanently deletes the student and \(n == 1 ? "1 session" : "\(n) sessions") (notes, check-ins, transcripts and summaries). Recordings are moved to the Trash.")
+        }
         .alert("Error", isPresented: isPresent($error)) {
             Button("OK") {}
         } message: { Text(error ?? "") }
@@ -187,6 +198,10 @@ struct ContentView: View {
         } else if items.count == 1, case .student(let id) = items.first,
                   let s = groups.lazy.flatMap(\.students).first(where: { $0.id == id })?.student {
             Button("Edit Student…") { editing = s }
+            Divider()
+            Button("Delete Student…", role: .destructive) {
+                deletingStudent = groups.lazy.flatMap(\.students).first { $0.id == id }
+            }
         }
     }
 
@@ -253,6 +268,14 @@ struct ContentView: View {
     /// The sidebar circle (D41): ticks the student as reported today, or unticks today's check-in.
     private func toggleCheckIn(_ studentID: Int64) {
         do { try db.toggleCheckIn(studentId: studentID, on: .now) } catch { self.error = error.localizedDescription }
+    }
+
+    private func delete(_ p: StudentProgress) {
+        do {
+            // Leave the deleted student's page for their group's.
+            if selection == .student(p.id) { selection = .group(p.student.groupId) }
+            AppPaths.trashAudio(try db.deleteStudent(id: p.id))
+        } catch { self.error = error.localizedDescription }
     }
 
     // MARK: Detail

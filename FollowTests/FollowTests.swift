@@ -331,6 +331,20 @@ struct AppDatabaseTests {
         #expect(try db.sessions(groupId: g).first?.session.isCheckIn == true)
     }
 
+    @Test func deleteStudentCascadesAndReturnsOnlyTheirAudioPaths() throws {
+        let db = try AppDatabase.inMemory()
+        let g = try db.importStudents([row("1", "An"), row("2", "Bình")], intoNewGroupNamed: "A")
+        let (an, binh) = try (db.progress(groupId: g)[0].id, db.progress(groupId: g)[1].id)
+        _ = try db.insertSession(Session(studentId: an, date: .now, audioPath: "audio/A/1/x.m4a"))
+        _ = try db.addNote(studentId: an, date: .now, text: "Ghi chú")
+        try db.toggleCheckIn(studentId: an, on: .now)
+        _ = try db.insertSession(Session(studentId: binh, date: .now, audioPath: "audio/A/2/y.m4a"))
+
+        #expect(try db.deleteStudent(id: an) == ["audio/A/1/x.m4a"])
+        #expect(try db.progress(groupId: g).map(\.student.fullName) == ["Bình"])
+        #expect(try db.sessions(groupId: g).map(\.session.audioPath) == ["audio/A/2/y.m4a"])
+    }
+
     @Test func groupSessionsCarryTheirStudentOldestFirst() throws {
         let db = try AppDatabase.inMemory()
         let g = try db.importStudents([row("1", "An"), row("2", "Bình")], intoNewGroupNamed: "A")

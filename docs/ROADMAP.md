@@ -15,6 +15,7 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 - [x] Add one student by hand: name + MSSV, optional email and project title (`StudentFormView`, D34)
 - [x] Random animal emoji per student, click to change (`StudentEmojiButton`, D35)
 - [x] Edit a student's details: right-click → Edit Student… (group, name, MSSV, email, project title; D37), plus the project title box on the student page (D29)
+- [x] Delete a student: right-click → Delete Student…, with confirmation; recordings to the Trash (D42)
 
 ## M2: Recording
 - [~] Record / stop with the Mac microphone → `.m4a` (`AudioRecorder`)
