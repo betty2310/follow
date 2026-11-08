@@ -1,11 +1,11 @@
 import Foundation
 
-/// Default engine. Soniox async REST API (docs: https://soniox.com/docs/stt/async/async-transcription, checked 2026-09-30):
+/// Default engine. Soniox async REST API (docs: https://soniox.com/docs/stt/async/async-transcription, checked 2026-11-08):
 /// upload file → create transcription (diarization on, language hint) → poll → fetch tokens → delete file + transcription.
 struct SonioxEngine: TranscriptionEngine {
     let id = "soniox"
     let displayName = "Soniox"
-    var model = "stt-async-v5"
+    var model = "stt-async-v6"
     var pollInterval: Duration = .seconds(2)
     var timeout: Duration = .seconds(15 * 60)
 

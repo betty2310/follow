@@ -23,7 +23,7 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 - [x] Session card: Show in Finder button; Re-run also for sessions stuck in `recorded`
 
 ## M3: Transcription
-- [x] `SonioxEngine` (default, `stt-async-v5`): upload → create transcription → poll → map tokens to utterances → delete remote file/transcription
+- [x] `SonioxEngine` (default, `stt-async-v6`): upload → create transcription → poll → map tokens to utterances → delete remote file/transcription
 - [ ] `GeminiTranscribeEngine`
 - [ ] `DeepgramEngine`
 - [x] Settings: API keys (UserDefaults, D31), default engine
