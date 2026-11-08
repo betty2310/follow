@@ -8,7 +8,7 @@ import Foundation
 struct GeminiTranscribeEngine: TranscriptionEngine {
     let id = "gemini"
     let displayName = "Gemini 3.5 Transcribe"
-    func transcribe(audioURL: URL, language: String) async throws -> [Utterance] {
+    func transcribe(audioURL: URL, language: String, student: StudentInfo) async throws -> [Utterance] {
         guard APIKeys.get(.gemini) != nil else { throw TranscriptionError.missingAPIKey(displayName) }
         throw TranscriptionError.notImplemented(displayName)
     }
@@ -19,7 +19,7 @@ struct GeminiTranscribeEngine: TranscriptionEngine {
 struct DeepgramEngine: TranscriptionEngine {
     let id = "deepgram"
     let displayName = "Deepgram Nova-3"
-    func transcribe(audioURL: URL, language: String) async throws -> [Utterance] {
+    func transcribe(audioURL: URL, language: String, student: StudentInfo) async throws -> [Utterance] {
         guard APIKeys.get(.deepgram) != nil else { throw TranscriptionError.missingAPIKey(displayName) }
         throw TranscriptionError.notImplemented(displayName)
     }

@@ -24,6 +24,7 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 
 ## M3: Transcription
 - [x] `SonioxEngine` (default, `stt-async-v6`): upload → create transcription → poll → map tokens to utterances → delete remote file/transcription
+- [x] Soniox `context`: student name, project title, session domain and a built-in list of English tech terms with each request (D40)
 - [ ] `GeminiTranscribeEngine`
 - [ ] `DeepgramEngine`
 - [x] Settings: API keys (UserDefaults, D31), default engine

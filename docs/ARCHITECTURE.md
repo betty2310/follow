@@ -57,7 +57,7 @@ Rules:
 ```swift
 protocol TranscriptionEngine: Sendable {
     var id: String { get }             // "soniox", "gemini", "deepgram"
-    func transcribe(audioURL: URL, language: String) async throws -> [Utterance]
+    func transcribe(audioURL: URL, language: String, student: StudentInfo) async throws -> [Utterance]
 }
 
 protocol SummarizationEngine: Sendable {

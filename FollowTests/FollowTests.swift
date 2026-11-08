@@ -473,6 +473,39 @@ struct SonioxEngineTests {
         #expect(SonioxEngine.utterances(from: transcript.tokens).map(\.speaker) == ["A", "B"])
     }
 
+    @Test func requestSendsStudentAndTermsAsContext() throws {
+        let student = StudentInfo(fullName: "Trần Thị Bình", projectTitle: "Ứng dụng đặt lịch khám bệnh bằng Flutter")
+        let body = SonioxEngine().requestBody(fileID: "f-1", language: "vi", student: student)
+        #expect(body["file_id"] as? String == "f-1")
+        #expect(body["language_hints"] as? [String] == ["vi"])
+        #expect(body["enable_speaker_diarization"] as? Bool == true)
+
+        let context = try #require(body["context"] as? [String: Any])
+        let general = try #require(context["general"] as? [[String: String]])
+        let values = Dictionary(general.map { ($0["key"]!, $0["value"]!) }, uniquingKeysWith: { a, _ in a })
+        #expect(general.count == values.count) // keys are unique
+        #expect(values["student"] == "Trần Thị Bình")
+        #expect(values["project"] == "Ứng dụng đặt lịch khám bệnh bằng Flutter")
+        #expect(values["domain"] != nil)
+
+        let terms = try #require(context["terms"] as? [String])
+        #expect(terms.contains("React") && terms.contains("API") && terms.contains("deploy"))
+        #expect(Set(terms).count == terms.count)
+
+        // Soniox rejects context over 8,000 tokens (~10,000 characters); stay well under it.
+        let json = try JSONSerialization.data(withJSONObject: context)
+        #expect(String(decoding: json, as: UTF8.self).count < 5_000)
+    }
+
+    @Test func requestLeavesOutAMissingProjectTitle() throws {
+        for title in ["", "  "] {
+            let body = SonioxEngine().requestBody(fileID: "f", language: "vi", student: StudentInfo(fullName: "An", projectTitle: title))
+            let general = try #require((body["context"] as? [String: Any])?["general"] as? [[String: String]])
+            #expect(!general.contains { $0["key"] == "project" })
+            #expect(general.contains { $0["key"] == "student" && $0["value"] == "An" })
+        }
+    }
+
     @Test func decodesJobError() throws {
         let json = #"{"id":"t","status":"error","error_type":"invalid_audio","error_message":"Bad file"}"#
         let job = try JSONDecoder().decode(SonioxEngine.Transcription.self, from: Data(json.utf8))
@@ -611,7 +644,7 @@ struct SessionProcessorTests {
         var id = "fake"
         var displayName = "Fake"
         var utterances: [Utterance]
-        func transcribe(audioURL: URL, language: String) async throws -> [Utterance] { utterances }
+        func transcribe(audioURL: URL, language: String, student: StudentInfo) async throws -> [Utterance] { utterances }
     }
 
     struct FakeSummarizer: SummarizationEngine {

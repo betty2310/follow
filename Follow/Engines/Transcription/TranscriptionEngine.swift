@@ -5,7 +5,8 @@ protocol TranscriptionEngine: Sendable {
     var id: String { get }
     var displayName: String { get }
     /// Transcribe with speaker diarization. `language` is a BCP-47 code, "vi" by default.
-    func transcribe(audioURL: URL, language: String) async throws -> [Utterance]
+    /// `student` lets engines that accept context or custom vocabulary use the student's name and project.
+    func transcribe(audioURL: URL, language: String, student: StudentInfo) async throws -> [Utterance]
 }
 
 enum TranscriptionError: LocalizedError {

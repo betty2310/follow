@@ -11,9 +11,11 @@ enum SessionProcessor {
         engine: any TranscriptionEngine = EngineRegistry.transcription(id: AppSettings.transcriptionEngineID)
     ) async {
         do {
-            guard let session = try db.session(id: sessionId), let audioPath = session.audioPath else { return }
+            guard let session = try db.session(id: sessionId), let audioPath = session.audioPath,
+                  let student = try db.student(id: session.studentId) else { return }
+            let info = StudentInfo(fullName: student.fullName, projectTitle: student.projectTitle)
             try db.updateSession(id: sessionId) { $0.status = .transcribing; $0.errorMessage = nil }
-            let utterances = try await engine.transcribe(audioURL: AppPaths.absolute(audioPath), language: "vi")
+            let utterances = try await engine.transcribe(audioURL: AppPaths.absolute(audioPath), language: "vi", student: info)
             let engineID = engine.id
             try db.updateSession(id: sessionId) {
                 $0.utterances = utterances

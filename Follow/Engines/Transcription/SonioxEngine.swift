@@ -1,7 +1,7 @@
 import Foundation
 
 /// Default engine. Soniox async REST API (docs: https://soniox.com/docs/stt/async/async-transcription, checked 2026-11-08):
-/// upload file → create transcription (diarization on, language hint) → poll → fetch tokens → delete file + transcription.
+/// upload file → create transcription (diarization on, language hint, context) → poll → fetch tokens → delete file + transcription.
 struct SonioxEngine: TranscriptionEngine {
     let id = "soniox"
     let displayName = "Soniox"
@@ -11,7 +11,7 @@ struct SonioxEngine: TranscriptionEngine {
 
     private static let baseURL = URL(string: "https://api.soniox.com/v1")!
 
-    func transcribe(audioURL: URL, language: String) async throws -> [Utterance] {
+    func transcribe(audioURL: URL, language: String, student: StudentInfo) async throws -> [Utterance] {
         guard let apiKey = APIKeys.get(.soniox), !apiKey.isEmpty else { throw TranscriptionError.missingAPIKey(displayName) }
         let api = API(key: apiKey)
 
@@ -26,12 +26,8 @@ struct SonioxEngine: TranscriptionEngine {
             }
         }
 
-        let created: Transcription = try await api.json("POST", "transcriptions", body: [
-            "model": model,
-            "file_id": fileID,
-            "language_hints": [language],
-            "enable_speaker_diarization": true,
-        ])
+        let created: Transcription = try await api.json(
+            "POST", "transcriptions", body: requestBody(fileID: fileID, language: language, student: student))
         transcriptionID = created.id
 
         let clock = ContinuousClock()
@@ -52,6 +48,51 @@ struct SonioxEngine: TranscriptionEngine {
             }
         }
     }
+
+    /// The create-transcription body. `context` (https://soniox.com/docs/stt/concepts/context, checked 2026-11-08, D40)
+    /// tells the model what the session is about, who the student is, and the English tech words mixed into
+    /// the Vietnamese, so it spells them right. Values are in Vietnamese, as the docs advise; an empty
+    /// project title is left out. Context is limited to 8,000 tokens (~10,000 characters).
+    func requestBody(fileID: String, language: String, student: StudentInfo) -> [String: Any] {
+        var general = [
+            ["key": "setting", "value": "Buổi trao đổi 1-1 hằng tuần giữa giáo viên và sinh viên"],
+            ["key": "domain", "value": "Hướng dẫn đồ án phần mềm"],
+            ["key": "student", "value": student.fullName],
+        ]
+        let project = student.projectTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !project.isEmpty { general.append(["key": "project", "value": project]) }
+        return [
+            "model": model,
+            "file_id": fileID,
+            "language_hints": [language],
+            "enable_speaker_diarization": true,
+            "context": ["general": general, "terms": Self.techTerms],
+        ]
+    }
+
+    /// English tech words students say inside Vietnamese sentences, written the way they should appear.
+    /// Built in, not a setting (D40): edit this list when a word keeps coming out wrong.
+    static let techTerms = [
+        // Languages, frameworks, platforms
+        "JavaScript", "TypeScript", "Python", "Java", "Kotlin", "Swift", "Dart", "C#", "PHP",
+        "React", "React Native", "Next.js", "Vue", "Angular", "Flutter", "Node.js", "Express", "NestJS",
+        "Spring Boot", "Django", "FastAPI", "Laravel", ".NET", "Android", "iOS", "Tailwind",
+        // Data and backend
+        "database", "SQL", "MySQL", "PostgreSQL", "MongoDB", "Redis", "Firebase", "Supabase", "schema", "query",
+        "API", "REST API", "endpoint", "backend", "frontend", "fullstack", "server", "microservice", "WebSocket",
+        "login", "authentication", "token", "JWT", "OAuth",
+        // Design
+        "UI", "UX", "Figma", "mockup", "wireframe", "component", "framework", "library", "responsive",
+        // Tools and delivery
+        "deploy", "Docker", "Kubernetes", "CI/CD", "Git", "GitHub", "commit", "push", "pull request", "merge", "branch",
+        "AWS", "Vercel", "hosting", "domain", "localhost",
+        // Process and documents
+        "bug", "fix", "debug", "test", "unit test", "feature", "task", "deadline", "demo", "slide", "report",
+        "sprint", "Jira", "Trello", "use case", "diagram", "ERD", "UML", "requirement", "flow",
+        // AI
+        "AI", "machine learning", "deep learning", "model", "dataset", "train", "LLM", "chatbot", "ChatGPT", "prompt",
+        "OpenCV", "YOLO",
+    ]
 
     /// Groups consecutive tokens by speaker into utterances. Soniox speaker ids ("1", "2", …) are relabelled
     /// "A", "B", … in order of first appearance. Tokens are sub-word pieces carrying their own leading spaces.
