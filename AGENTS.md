@@ -7,11 +7,11 @@ A personal native macOS app for a teacher who mentors ~30 students on their own 
 1. imports student lists from `.xlsx` into **groups** (folders of students),
 2. records each session (Mac mic → `.m4a`),
 3. transcribes it with a **cloud STT with speaker diarization**,
-4. summarizes it in Vietnamese with **`claude -p`**, inferring which speaker is the teacher,
+4. summarizes it in Vietnamese with an LLM API (**Anthropic** or any **OpenAI-compatible** server, picked in Settings), inferring which speaker is the teacher,
 5. shows who has reported each week, plus a per-student timeline of summaries.
 
 ## Must-read docs
-- `docs/DECISIONS.md`: settled product/tech decisions (D1–D27), summary template, STT research. **Don't re-open these without asking the owner.**
+- `docs/DECISIONS.md`: settled product/tech decisions (D1–D39), summary template, STT research. **Don't re-open these without asking the owner.**
 - `docs/ARCHITECTURE.md`: pipeline, layout, models, engine protocols, storage.
 - `docs/ROADMAP.md`: milestones and status. **Update checkboxes when you finish work.**
 
@@ -32,7 +32,7 @@ make install # Release build → /Applications, reset mic/Documents permissions,
 - Swift 6 (strict concurrency), SwiftUI, **GRDB/SQLite**, `@Observable`. Swift Testing (`import Testing`) for tests.
 - **UI text in English.** Generated content (summaries, prompts) in **Vietnamese**.
 - Engines are pluggable: add providers behind `TranscriptionEngine` / `SummarizationEngine` and register them in `EngineRegistry`. Views and models must not know about specific providers.
-- Put logic in `Services/` or `Engines/` as pure, testable functions (see `StudentImporter.rows(from:)`, `ClaudeCLISummarizer.parse`). Keep views thin.
+- Put logic in `Services/` or `Engines/` as pure, testable functions (see `StudentImporter.rows(from:)`, `AnthropicSummarizer.parse(response:)`). Keep views thin.
 - **All DB access goes through `AppDatabase`** (`Follow/Database/`). Schema changes = a new migration. Records are plain `Sendable` structs.
 - **Time format:** dates are readable local time with offset (`2026-09-30 10:37:39.175+07:00`, via `DBTimestamp`), and in-recording times are seconds. **Never epoch, never bare UTC.**
 - Vocabulary: **Group** = a folder of students; **Project** = a student's own project (`projectTitle`). Don't mix them up.
@@ -40,12 +40,12 @@ make install # Release build → /Applications, reset mic/Documents permissions,
 - **Never commit real student data** (names, MSSV, emails, recordings). Test fixtures in `FollowTests/Fixtures/` use fake data.
 - API keys live in UserDefaults via `APIKeys` / `APIKey` (D31, not Keychain: it prompted for the password). Never commit API keys.
 - Data lives in `~/Documents/Follow/` (`AppPaths`). Audio paths are stored **relative** to that root.
-- Not sandboxed, not for the App Store: the app spawns the `claude` CLI via `Process` using an absolute path (GUI apps don't get the shell `PATH`).
-- Before implementing a cloud STT provider, **read its current API docs** (links in `Providers.swift`). APIs in this area change often.
+- Not sandboxed, not for the App Store.
+- Before implementing a cloud STT or LLM provider, **read its current API docs** (links in `Providers.swift` and each summarizer's header comment). APIs in this area change often.
 - Keep it simple. The owner explicitly rejected over-engineering (e.g. no structured action-item tracking, no export in v1).
 
 ## Gotchas
-- `claude -p --output-format json` returns an envelope; the model text is in `result` and may be wrapped in ```json fences. `ClaudeCLISummarizer.parse` handles this, so keep its test green.
+- The model's summary text may wrap the JSON in ```json fences, and Anthropic replies can include `thinking` blocks before the `text` blocks. `AnthropicSummarizer.parse` / `OpenAICompatibleSummarizer.parse` and `SummaryResult.parse(modelText:)` handle this, so keep `SummarizerTests` green.
 - Microphone permission comes from `NSMicrophoneUsageDescription` in `project.yml`. Debug builds are ad-hoc signed and may re-prompt after rebuilds; release builds keep their permissions across updates (D30).
 - Diarization labels (A/B) are anonymous. `Session.teacherSpeaker` records which one is the teacher. The UI must allow swapping it.
 - In a `List`, don't make a `DisclosureGroup` the fixed, whole content of a `ForEach` row: SwiftUI loses sync with the NSOutlineView behind it (the row can't collapse, then toggling crashes). The sidebar avoids this by using plain rows (`ContentView.groupRow`); if you bring a DisclosureGroup back, keep a conditional in the row.

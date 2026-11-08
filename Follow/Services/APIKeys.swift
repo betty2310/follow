@@ -5,6 +5,10 @@ enum APIKey: String, CaseIterable {
     case soniox = "soniox-api-key"
     case gemini = "gemini-api-key"
     case deepgram = "deepgram-api-key"
+    case anthropic = "anthropic-api-key"
+    case openAI = "openai-api-key"
+
+    static let transcription: [APIKey] = [.soniox, .gemini, .deepgram]
 }
 
 /// API keys in UserDefaults (plain plist, personal app). Not Keychain: with a self-signed

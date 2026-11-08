@@ -374,21 +374,61 @@ struct TimestampStorageTests {
     }
 }
 
-struct ClaudeCLISummarizerTests {
-    @Test func acceptsUnknownTeacherSpeaker() throws {
-        let inner = ###"{"teacher_speaker": null, "summary_markdown": "## Đã làm được\nBản ghi quá ngắn."}"###
-        let envelope = try JSONSerialization.data(withJSONObject: ["type": "result", "result": inner])
-        let result = try ClaudeCLISummarizer.parse(cliOutput: envelope)
-        #expect(result.teacherSpeaker == nil)
-        #expect(result.summaryMarkdown.hasPrefix("## Đã làm được"))
+struct SummarizerTests {
+    private let fenced = "```json\n{\"teacher_speaker\": \"B\", \"summary_markdown\": \"## Đã làm được\\n- X\"}\n```"
+
+    @Test func anthropicJoinsTextBlocksAndSkipsThinking() throws {
+        // The JSON split over two text blocks, after a thinking block that has no `text`.
+        let half = fenced.index(fenced.startIndex, offsetBy: 30)
+        let response = try JSONSerialization.data(withJSONObject: [
+            "type": "message", "role": "assistant", "stop_reason": "end_turn",
+            "content": [
+                ["type": "thinking", "thinking": "Người A hỏi {…}", "signature": "x"],
+                ["type": "text", "text": String(fenced[..<half])],
+                ["type": "text", "text": String(fenced[half...])],
+            ],
+        ])
+        let result = try AnthropicSummarizer.parse(response: response)
+        #expect(result == SummaryResult(teacherSpeaker: "B", summaryMarkdown: "## Đã làm được\n- X"))
     }
 
-    @Test func parsesEnvelopeWithFencedJSON() throws {
-        let inner = "```json\n{\"teacher_speaker\": \"B\", \"summary_markdown\": \"## Đã làm được\\n- X\"}\n```"
-        let envelope = try JSONSerialization.data(withJSONObject: ["type": "result", "result": inner])
-        let result = try ClaudeCLISummarizer.parse(cliOutput: envelope)
-        #expect(result.teacherSpeaker == "B")
-        #expect(result.summaryMarkdown.hasPrefix("## Đã làm được"))
+    @Test func acceptsUnknownTeacherSpeaker() throws {
+        let inner = ###"{"teacher_speaker": null, "summary_markdown": "## Đã làm được\nBản ghi quá ngắn."}"###
+        let response = try JSONSerialization.data(withJSONObject: ["choices": [
+            ["index": 0, "finish_reason": "stop", "message": ["role": "assistant", "content": inner]],
+        ]])
+        let result = try OpenAICompatibleSummarizer.parse(response: response)
+        #expect(result.teacherSpeaker == nil)
+        #expect(result.summaryMarkdown == "## Đã làm được\nBản ghi quá ngắn.")
+    }
+
+    @Test func refusalIsAnError() throws {
+        let response = try JSONSerialization.data(withJSONObject: ["choices": [
+            ["index": 0, "finish_reason": "stop", "message": ["role": "assistant", "content": NSNull(), "refusal": "No."]],
+        ]])
+        #expect(throws: SummarizationError.self) { try OpenAICompatibleSummarizer.parse(response: response) }
+    }
+
+    @Test func requestsReachEachProvider() throws {
+        let anthropic = try AnthropicSummarizer(model: "claude-x").request(prompt: "p", apiKey: "sk-ant")
+        #expect(anthropic.url?.absoluteString == "https://api.anthropic.com/v1/messages")
+        #expect(anthropic.value(forHTTPHeaderField: "Authorization") == "Bearer sk-ant")
+        #expect(anthropic.value(forHTTPHeaderField: "anthropic-version") != nil)
+        let data = try #require(anthropic.httpBody)
+        let body = try #require(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        #expect(body["model"] as? String == "claude-x" && body["max_tokens"] is Int)
+
+        for base in ["https://openrouter.ai/api/v1", "https://openrouter.ai/api/v1/"] {
+            let request = try OpenAICompatibleSummarizer(baseURL: base, model: "m").request(prompt: "p", apiKey: "sk")
+            #expect(request.url?.absoluteString == "https://openrouter.ai/api/v1/chat/completions")
+            #expect(request.value(forHTTPHeaderField: "Authorization") == "Bearer sk")
+        }
+        let local = try OpenAICompatibleSummarizer(baseURL: "http://localhost:11434/v1", model: "m").request(prompt: "p", apiKey: nil)
+        #expect(local.url?.absoluteString == "http://localhost:11434/v1/chat/completions")
+        #expect(local.value(forHTTPHeaderField: "Authorization") == nil)
+        #expect(throws: OpenAICompatibleSummarizer.Failure.self) {
+            try OpenAICompatibleSummarizer(baseURL: "api.openai.com/v1", model: "m").request(prompt: "p", apiKey: nil)
+        }
     }
 }
 
@@ -575,6 +615,8 @@ struct SessionProcessorTests {
     }
 
     struct FakeSummarizer: SummarizationEngine {
+        var id = "fake"
+        var displayName = "Fake"
         func summarize(utterances: [Utterance], student: StudentInfo) async throws -> SummaryResult {
             SummaryResult(teacherSpeaker: "B", summaryMarkdown: "## Đã làm được\n- \(student.fullName)")
         }
@@ -711,11 +753,11 @@ struct RenameMigrationTests {
         let suite = "RenameMigrationTests-\(UUID().uuidString)"
         let defaults = try #require(UserDefaults(suiteName: suite))
         defer { defaults.removePersistentDomain(forName: suite) }
-        defaults.set("opus", forKey: "claudeModel")
+        defaults.set("deepgram", forKey: "transcriptionEngineID")
 
-        RenameMigration.copySettings(from: ["soniox-api-key": "sk-old", "claudeModel": "sonnet"], to: defaults)
+        RenameMigration.copySettings(from: ["soniox-api-key": "sk-old", "transcriptionEngineID": "soniox"], to: defaults)
         #expect(APIKeys.get(.soniox, defaults: defaults) == "sk-old")
-        #expect(defaults.string(forKey: "claudeModel") == "opus")
+        #expect(defaults.string(forKey: "transcriptionEngineID") == "deepgram")
 
         APIKeys.set(nil, for: .soniox, defaults: defaults)
         RenameMigration.copySettings(from: ["soniox-api-key": "sk-old"], to: defaults)

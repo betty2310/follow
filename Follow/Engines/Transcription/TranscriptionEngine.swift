@@ -37,7 +37,15 @@ enum EngineRegistry {
         transcriptionEngines.first { $0.id == id } ?? SonioxEngine()
     }
 
-    static func summarizer() -> any SummarizationEngine {
-        ClaudeCLISummarizer(cliPath: AppSettings.claudeCLIPath, model: AppSettings.claudeModel)
+    /// Built from the current Settings, so a changed model or base URL applies to the next summary.
+    static var summarizationEngines: [any SummarizationEngine] {
+        [
+            AnthropicSummarizer(model: AppSettings.anthropicModel),
+            OpenAICompatibleSummarizer(baseURL: AppSettings.openAIBaseURL, model: AppSettings.openAIModel),
+        ]
+    }
+
+    static func summarizer(id: String = AppSettings.summarizationEngineID) -> any SummarizationEngine {
+        summarizationEngines.first { $0.id == id } ?? summarizationEngines[0]
     }
 }

@@ -18,8 +18,61 @@ struct SummaryResult: Codable, Sendable, Equatable {
     }
 }
 
+extension SummaryResult {
+    /// Parses the JSON object the prompt asks for out of the model's text, which may wrap it in ```json fences.
+    static func parse(modelText text: String) throws -> SummaryResult {
+        guard let open = text.firstIndex(of: "{"), let close = text.lastIndex(of: "}"), open < close,
+              let result = try? JSONDecoder().decode(SummaryResult.self, from: Data(text[open...close].utf8))
+        else { throw SummarizationError.unparsable(text) }
+        return result
+    }
+}
+
 protocol SummarizationEngine: Sendable {
+    /// Stable identifier stored in Settings, e.g. "anthropic".
+    var id: String { get }
+    var displayName: String { get }
     func summarize(utterances: [Utterance], student: StudentInfo) async throws -> SummaryResult
+}
+
+enum SummarizationError: LocalizedError {
+    case missingAPIKey(String)
+    case http(Int, String)
+    case unparsable(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .missingAPIKey(let engine): "Missing API key for \(engine). Add it in Settings."
+        case .http(let code, let message): "HTTP \(code): \(message)"
+        case .unparsable(let text): "Could not parse summary JSON: \(text.prefix(300))"
+        }
+    }
+}
+
+enum SummaryAPI {
+    /// A JSON POST with a long timeout: a summary can take a few minutes.
+    static func post(_ url: URL, headers: [String: String], body: [String: Any]) throws -> URLRequest {
+        var request = URLRequest(url: url, timeoutInterval: 300)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        for (name, value) in headers { request.setValue(value, forHTTPHeaderField: name) }
+        request.httpBody = try JSONSerialization.data(withJSONObject: body)
+        return request
+    }
+
+    /// Sends a request and returns the body of a 2xx response. Both providers report errors as
+    /// `{"error": {"message": "..."}}`; that message is shown, else the start of the body.
+    static func send(_ request: URLRequest) async throws -> Data {
+        let (data, response) = try await URLSession.shared.data(for: request)
+        let code = (response as? HTTPURLResponse)?.statusCode ?? 0
+        guard (200..<300).contains(code) else {
+            struct Body: Decodable { struct Detail: Decodable { let message: String }; let error: Detail }
+            let message = (try? JSONDecoder().decode(Body.self, from: data).error.message)
+                ?? String(decoding: data.prefix(500), as: UTF8.self)
+            throw SummarizationError.http(code, message)
+        }
+        return data
+    }
 }
 
 enum SummaryPrompt {

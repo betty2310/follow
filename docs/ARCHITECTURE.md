@@ -12,7 +12,7 @@ Import audio file ───────────────┤
                                  │  automatic: TranscriptionEngine (Soniox | Gemini | Deepgram)
                                  ▼
                  Transcript: [Utterance(speaker: "A"/"B", text, start, end)]   (status: done)
-                                 ┆  on demand ("Summarize with AI"): SummarizationEngine (`claude -p`)
+                                 ┆  on demand ("Summarize with AI"): SummarizationEngine (Anthropic | OpenAI-compatible)
                                  ▼
           SummaryResult: teacherSpeaker ("A"/"B") + Vietnamese markdown summary   (status: done)
 ```
@@ -27,7 +27,7 @@ Follow/
   Database/       AppDatabase (GRDB: schema/migrations, observations, writes) + Records (StudentGroup, GroupProgress, Student, Session, Utterance, StudentProgress)
   Engines/
     Transcription/  TranscriptionEngine protocol + providers
-    Summarization/  SummarizationEngine protocol + ClaudeCLISummarizer
+    Summarization/  SummarizationEngine protocol, SummaryPrompt, SummaryResult.parse + providers (Anthropic, OpenAI-compatible)
   Services/       AudioRecorder, AudioPlayer (session dialog), SessionProcessor, StudentImporter (xlsx), APIKeys, WeekCalendar, AppUpdater (Sparkle), RenameMigration (one-time move from the old ProjectRecord name, D32)
   Views/          SwiftUI views: ContentView (sidebar + SidebarItem routing), DashboardView (stats + day board), StudentDetailView (title + day board, SessionNotesView inspector), SessionBoard (D36 day board: Days/Month, pins, context menu, SessionActions), SessionDetailSheet (pin dialog), NoteComposerView (new note), MonthGrid, ImportStudentsView, StudentFormView (add / edit student), SettingsView (⌘, window)
 FollowTests/
@@ -61,21 +61,23 @@ protocol TranscriptionEngine: Sendable {
 }
 
 protocol SummarizationEngine: Sendable {
+    var id: String { get }             // "anthropic", "openai"
     func summarize(utterances: [Utterance], student: StudentInfo) async throws -> SummaryResult
 }
 ```
 
 To add a provider:
-1. Add a file in `Engines/Transcription/`.
+1. Add a file in `Engines/Transcription/` or `Engines/Summarization/`.
 2. Register it in `EngineRegistry`.
 3. If it needs a key, add a case to `APIKey`.
 
-## Summarizer (`claude -p`)
+## Summarizers (D39)
 
-- Runs `claude -p --model sonnet --output-format json` with `Process`. The prompt goes to stdin.
-- The prompt asks for a JSON object `{ "teacher_speaker": "A"|"B", "summary_markdown": "..." }` and includes the Vietnamese template from `docs/DECISIONS.md`.
-- The CLI's JSON envelope contains the model's text in the `result` field. Parse the inner JSON from that text.
-- GUI apps don't inherit the shell `PATH`, so the CLI path must be **absolute** (default `~/.local/bin/claude`) and can be changed in Settings.
+- `SummaryPrompt.build` makes one Vietnamese prompt that asks for a JSON object `{ "teacher_speaker": "A"|"B"|null, "summary_markdown": "..." }` and includes the template from `docs/DECISIONS.md`. It is sent as the only user message.
+- `AnthropicSummarizer`: `POST https://api.anthropic.com/v1/messages` with `Authorization: Bearer <key>` and `anthropic-version: 2026-10-21`. `parse(response:)` joins the `text` content blocks (skipping `thinking` blocks).
+- `OpenAICompatibleSummarizer`: `POST <base URL>/chat/completions`, `Authorization: Bearer <key>` only when a key is set. Sends just `model` and `messages`. `parse(response:)` takes `choices[0].message.content`.
+- Both hand the model text to `SummaryResult.parse(modelText:)`, which takes the outermost `{…}` (the model may wrap it in ```json fences). Errors show the provider's `error.message`.
+- Settings: `summarizationEngineID`, `anthropicModel`, `openAIBaseURL`, `openAIModel` in UserDefaults (`AppSettings`, an empty field means the default); keys in `APIKeys`.
 
 ## Storage
 

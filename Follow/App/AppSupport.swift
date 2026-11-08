@@ -34,14 +34,16 @@ enum AppPaths {
 }
 
 enum AppSettings {
-    static var claudeCLIPath: String {
-        UserDefaults.standard.string(forKey: "claudeCLIPath")
-            ?? URL.homeDirectory.appending(path: ".local/bin/claude").path
-    }
-    static var claudeModel: String {
-        UserDefaults.standard.string(forKey: "claudeModel") ?? "sonnet"
-    }
-    static var transcriptionEngineID: String {
-        UserDefaults.standard.string(forKey: "transcriptionEngineID") ?? "soniox"
+    static var transcriptionEngineID: String { string("transcriptionEngineID") ?? "soniox" }
+    static var summarizationEngineID: String { string("summarizationEngineID") ?? "anthropic" }
+    static var anthropicModel: String { string("anthropicModel") ?? AnthropicSummarizer.defaultModel }
+    static var openAIBaseURL: String { string("openAIBaseURL") ?? OpenAICompatibleSummarizer.defaultBaseURL }
+    static var openAIModel: String { string("openAIModel") ?? OpenAICompatibleSummarizer.defaultModel }
+
+    /// A cleared text field in Settings falls back to the default.
+    private static func string(_ key: String) -> String? {
+        guard let value = UserDefaults.standard.string(forKey: key)?.trimmingCharacters(in: .whitespaces),
+              !value.isEmpty else { return nil }
+        return value
     }
 }

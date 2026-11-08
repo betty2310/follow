@@ -30,7 +30,8 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 - [ ] Comparison mode: run one session through all engines and show the transcripts side by side
 
 ## M4: Summarization
-- [~] `ClaudeCLISummarizer` (`claude -p`), prompt + JSON parsing
+- [x] ~~`ClaudeCLISummarizer` (`claude -p`)~~ replaced by API summarizers (D39)
+- [x] `AnthropicSummarizer` (Messages API) and `OpenAICompatibleSummarizer` (Chat Completions, configurable base URL), provider picker + keys in Settings, pure response parsing (D39)
 - [x] Summarize on demand (**Summarize with AI**), transcription alone runs automatically; Set Teacher without a summary (D36)
 - [x] Teacher/Student labels in the transcript view + swap button (`SessionDetailView`)
 - [x] Editable summary (markdown) in the session edit sheet; re-run button (D29)

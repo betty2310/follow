@@ -1,9 +1,11 @@
 import SwiftUI
 
 struct SettingsView: View {
-    @AppStorage("claudeCLIPath") private var claudeCLIPath = AppSettings.claudeCLIPath
-    @AppStorage("claudeModel") private var claudeModel = "sonnet"
     @AppStorage("transcriptionEngineID") private var engineID = "soniox"
+    @AppStorage("summarizationEngineID") private var summarizerID = "anthropic"
+    @AppStorage("anthropicModel") private var anthropicModel = AnthropicSummarizer.defaultModel
+    @AppStorage("openAIBaseURL") private var openAIBaseURL = OpenAICompatibleSummarizer.defaultBaseURL
+    @AppStorage("openAIModel") private var openAIModel = OpenAICompatibleSummarizer.defaultModel
     @AppStorage("clawd.visible") private var showsClawd = true
     @State private var keys: [APIKey: String] = [:]
     @Environment(AppUpdater.self) private var updater
@@ -14,16 +16,22 @@ struct SettingsView: View {
                 Picker("Default engine", selection: $engineID) {
                     ForEach(EngineRegistry.transcriptionEngines, id: \.id) { Text($0.displayName).tag($0.id) }
                 }
-                ForEach(APIKey.allCases, id: \.self) { key in
-                    SecureField(key.rawValue, text: Binding(
-                        get: { keys[key] ?? "" },
-                        set: { keys[key] = $0; APIKeys.set($0, for: key) }
-                    ))
+                ForEach(APIKey.transcription, id: \.self) { key in
+                    SecureField(key.rawValue, text: binding(for: key))
                 }
             }
-            Section("Summarization (claude -p)") {
-                TextField("Claude CLI path", text: $claudeCLIPath)
-                TextField("Model", text: $claudeModel)
+            Section("Summarization") {
+                Picker("Provider", selection: $summarizerID) {
+                    ForEach(EngineRegistry.summarizationEngines, id: \.id) { Text($0.displayName).tag($0.id) }
+                }
+                if summarizerID == "openai" {
+                    TextField("Base URL", text: $openAIBaseURL, prompt: Text(OpenAICompatibleSummarizer.defaultBaseURL))
+                    TextField("Model", text: $openAIModel, prompt: Text(OpenAICompatibleSummarizer.defaultModel))
+                    SecureField("API key", text: binding(for: .openAI), prompt: Text("Optional for local servers"))
+                } else {
+                    TextField("Model", text: $anthropicModel, prompt: Text(AnthropicSummarizer.defaultModel))
+                    SecureField("API key", text: binding(for: .anthropic))
+                }
             }
             Section("Fun") {
                 Toggle("Show Clawd", isOn: $showsClawd)
@@ -42,5 +50,9 @@ struct SettingsView: View {
         .onAppear {
             for key in APIKey.allCases { keys[key] = APIKeys.get(key) }
         }
+    }
+
+    private func binding(for key: APIKey) -> Binding<String> {
+        Binding(get: { keys[key] ?? "" }, set: { keys[key] = $0; APIKeys.set($0, for: key) })
     }
 }
