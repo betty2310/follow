@@ -42,7 +42,7 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 - [~] Dashboard: this-week stats, not-reported list, calendar with the number of students reported per day (`DashboardView`, D26)
 - [x] ~~Student page: week calendar strip of sessions + detail of the selected session (D23)~~ replaced by the day board (D36)
 - [x] Day board on the student page and group dashboard: every day oldest → today, pins per day, Days / Month switch (`SessionBoard`, D36)
-- [x] Clawd, a pixel mascot wandering the detail pane, unchanged when switching students; click for a trick, hide from its menu or Settings (`ClawdPlayground`, D38)
+- [x] Pixel cat mascot (the app icon's cat, replacing Clawd) wandering the detail pane, unchanged when switching students; click for a trick, hide from its menu or Settings (`CatPlayground`, D38)
 - [x] Text notes as their own pins (session without audio), New Note composer, + on a day (`NoteComposerView`, D36)
 - [x] Check-in: tick that a student reported without a note or recording (sidebar circle, not-reported chips, student toolbar, ✓ on a day), green capsule pins (D41)
 - [x] Pin dialog: editable date, audio player (play from a transcript line), note, summary, transcript; right-click actions (`SessionDetailSheet`, D36)

@@ -6,7 +6,7 @@ struct SettingsView: View {
     @AppStorage("anthropicModel") private var anthropicModel = AnthropicSummarizer.defaultModel
     @AppStorage("openAIBaseURL") private var openAIBaseURL = OpenAICompatibleSummarizer.defaultBaseURL
     @AppStorage("openAIModel") private var openAIModel = OpenAICompatibleSummarizer.defaultModel
-    @AppStorage("clawd.visible") private var showsClawd = true
+    @AppStorage("cat.visible") private var showsCat = true
     @State private var keys: [APIKey: String] = [:]
     @Environment(AppUpdater.self) private var updater
 
@@ -34,7 +34,7 @@ struct SettingsView: View {
                 }
             }
             Section("Fun") {
-                Toggle("Show Clawd", isOn: $showsClawd)
+                Toggle("Show Cat", isOn: $showsCat)
             }
             Section("Updates") {
                 @Bindable var updater = updater

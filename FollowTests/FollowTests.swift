@@ -847,40 +847,52 @@ struct RenameMigrationTests {
     }
 }
 
-struct ClawdTests {
+struct CatTests {
+    private func fur(_ pose: CatPose) -> [(x: Int, y: Int)] {
+        pose.pixels.enumerated().flatMap { y, row in row.enumerated().compactMap { x, ink in ink == .fur ? (x, y) : nil } }
+    }
+
     @Test func everyPoseHasTheSameSize() {
-        for arms in ClawdPose.Arms.allCases {
-            for eyes in ClawdPose.Eyes.allCases {
-                for legs in ClawdPose.Legs.allCases {
-                    for look in -2...2 {
-                        let pixels = ClawdPose(arms: arms, eyes: eyes, legs: legs, look: look).pixels
-                        #expect(pixels.count == ClawdPose.height)
-                        #expect(pixels.allSatisfy { $0.count == ClawdPose.width })
+        let props: [CatPose.Prop] = [.none, .zzz(1.3), .clipboard(0.5), .clipboard(3), .headphones(2), .check(rise: 2), .heart(0.2), .paw(up: true)]
+        for legs in CatPose.Legs.allCases {
+            for eyes in CatPose.Eyes.allCases {
+                for prop in props {
+                    for facingRight in [false, true] {
+                        let pixels = CatPose(legs: legs, eyes: eyes, look: 1, frontDrop: 3, facingRight: facingRight, prop: prop).pixels
+                        #expect(pixels.count == CatPose.height)
+                        #expect(pixels.allSatisfy { $0.count == CatPose.width })
                     }
                 }
             }
         }
     }
 
-    @Test func openEyesAreHolesThatFollowTheLook() {
-        let ahead = ClawdPose().pixels
-        #expect(!ahead[2][5] && !ahead[2][12])
-        let right = ClawdPose(look: 1).pixels
-        #expect(!right[2][6] && !right[2][13] && right[2][5])
-        let asleep = ClawdPose(eyes: .closed).pixels
-        #expect(asleep[2][5] && asleep[2][12])
+    @Test func turningAroundKeepsTheCatInPlace() {
+        // The frame is centered on the cat, so it doesn't jump sideways when it turns.
+        let left = fur(CatPose()).map(\.x), right = fur(CatPose(facingRight: true)).map(\.x)
+        #expect(left.min()! + left.max()! == right.min()! + right.max()!)
+        #expect(left.max()! - left.min()! == right.max()! - right.min()!)
     }
 
-    @Test func walkingLiftsAlternateLegs() {
-        let left = ClawdPose(legs: .left).pixels[9]
-        let right = ClawdPose(legs: .right).pixels[9]
-        #expect(left[4] && !left[6] && left[11] && !left[13])
-        #expect(!right[4] && right[6] && !right[11] && right[13])
+    @Test func eyesFollowTheLook() {
+        let (x, y) = (CatPose.origin.x + 9, CatPose.origin.y + 12)
+        #expect(CatPose().pixels[y][x] == .line)
+        let back = CatPose(look: 1).pixels
+        #expect(back[y][x + 1] == .line && back[y][x] == .fur)
+    }
+
+    @Test func walkingLiftsAlternateFeet() {
+        // Feet stand on the ground row in the cat's own coordinates at x 7, 11 (front) and 22, 26 (back).
+        let row = CatPose.groundRow, feet = [7, 11, 22, 26].map { $0 + CatPose.origin.x }
+        let left = CatPose(legs: .left).pixels[row], right = CatPose(legs: .right).pixels[row]
+        #expect(feet.map { left[$0] == .fur } == [false, true, true, false])
+        #expect(feet.map { right[$0] == .fur } == [true, false, false, true])
+        #expect(feet.allSatisfy { CatPose().pixels[row][$0] == .fur })
     }
 
     @Test func neverRepeatsATrick() {
-        for trick in ClawdTrick.allCases {
-            for _ in 0..<20 { #expect(ClawdTrick.random(after: trick) != trick) }
+        for trick in CatTrick.allCases {
+            for _ in 0..<20 { #expect(CatTrick.random(after: trick) != trick) }
         }
     }
 }
