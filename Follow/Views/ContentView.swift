@@ -153,7 +153,7 @@ struct ContentView: View {
             GroupRow(group: g, isExpanded: expanded).tag(SidebarItem.group(g.id))
             if expanded {
                 ForEach(g.students) { p in
-                    StudentRow(progress: p).tag(SidebarItem.student(p.id))
+                    StudentRow(progress: p) { toggleCheckIn(p.id) }.tag(SidebarItem.student(p.id))
                         .padding(.leading, 22)
                 }
             }
@@ -248,6 +248,13 @@ struct ContentView: View {
         } catch { self.error = error.localizedDescription }
     }
 
+    // MARK: Student actions
+
+    /// The sidebar circle (D41): ticks the student as reported today, or unticks today's check-in.
+    private func toggleCheckIn(_ studentID: Int64) {
+        do { try db.toggleCheckIn(studentId: studentID, on: .now) } catch { self.error = error.localizedDescription }
+    }
+
     // MARK: Detail
 
     @ViewBuilder private var detail: some View {
@@ -335,6 +342,7 @@ private struct VersionFooter: View {
 
 private struct StudentRow: View {
     let progress: StudentProgress
+    var onCheckIn: () -> Void
     var body: some View {
         HStack {
             StudentEmojiButton(student: progress.student)
@@ -344,9 +352,20 @@ private struct StudentRow: View {
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer()
+            // Green = reported this week. A click checks the student in today, a second click undoes it (D41).
             let reported = progress.hasReported(in: WeekCalendar.week(of: .now))
-            Image(systemName: reported ? "checkmark.circle.fill" : "circle")
-                .foregroundStyle(reported ? .green : .secondary)
+            Button(action: onCheckIn) {
+                Image(systemName: reported ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(reported ? .green : .secondary)
+                    .symbolEffect(.bounce, value: progress.sessionDates.count)
+                    .frame(width: 22, height: 22)
+                    .contentShape(.rect)
+            }
+            .buttonStyle(.borderless)
+            .accessibilityLabel("Check in \(progress.student.fullName) today")
+            .help(reported
+                  ? "Reported this week. Click to check in today; click again to undo."
+                  : "Not reported this week. Click to check in today.")
         }
     }
 }

@@ -42,6 +42,11 @@ extension WeekCalendar {
         }
         return result
     }
+
+    /// The time a report added to `day` gets: now when it's today, midday otherwise (it can be changed later).
+    static func time(on day: Date, now: Date = .now) -> Date {
+        calendar.isDate(day, inSameDayAs: now) ? now : calendar.date(byAdding: .hour, value: 12, to: calendar.startOfDay(for: day))!
+    }
 }
 
 extension WeekCalendar {

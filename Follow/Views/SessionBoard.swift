@@ -19,9 +19,7 @@ enum SessionSheet: Identifiable, Hashable {
 
     /// A new note on `day`: now when it's today, midday otherwise (the time can be changed in the dialog).
     static func newNote(on day: Date, studentID: Int64?, now: Date = .now) -> SessionSheet {
-        let cal = WeekCalendar.calendar
-        let date = cal.isDate(day, inSameDayAs: now) ? now : cal.date(byAdding: .hour, value: 12, to: cal.startOfDay(for: day))!
-        return .newNote(date: date, studentID: studentID)
+        .newNote(date: WeekCalendar.time(on: day, now: now), studentID: studentID)
     }
 }
 
@@ -80,7 +78,7 @@ struct SessionBoard: View {
                 NoteComposerView(students: students, date: date, studentID: studentID)
             }
         }
-        .alert(deleting?.hasAudio == false ? "Delete this note?" : "Delete this session?",
+        .alert(deleting.map(SessionActions.deleteTitle) ?? "",
                isPresented: .constant(deleting != nil), presenting: deleting) { session in
             Button("Delete", role: .destructive) { delete(session) }
             Button("Cancel", role: .cancel) { deleting = nil }
@@ -110,6 +108,8 @@ struct SessionBoard: View {
                             DayRow(day: day, isEmpty: pins.isEmpty,
                                    onAdd: students.isEmpty ? nil : { addNote(on: day) }) {
                                 ForEach(pins) { pin($0) }
+                            } checkIn: {
+                                checkInControl(on: day, pins: pins)
                             }
                         }
                         .id(day)
@@ -133,11 +133,44 @@ struct SessionBoard: View {
 
     private func pin(_ item: StudentSession) -> some View {
         Button { sheet = .open(item.id) } label: {
-            PinCard(item: item, showsStudent: showsStudent)
+            if item.session.isCheckIn {
+                CheckInPin(item: item, showsStudent: showsStudent)
+            } else {
+                PinCard(item: item, showsStudent: showsStudent)
+            }
         }
         .buttonStyle(.plain)
-        .help(item.session.hasAudio ? item.session.statusLabel : "Note")
+        .help(item.session.hasAudio ? item.session.statusLabel : item.session.isCheckIn ? "Check-in: click to add a note or change the time" : "Note")
         .contextMenu { menu(for: item) }
+    }
+
+    /// The ✓ shown when hovering a day (D41): ticks the student on a student page; on the dashboard, a menu
+    /// of the students who have nothing on that day yet.
+    @ViewBuilder private func checkInControl(on day: Date, pins: [StudentSession]) -> some View {
+        if students.count == 1, let id = students[0].id {
+            let checked = pins.contains { $0.session.isCheckIn }
+            Button(checked ? "Remove Check-in" : "Check In", systemImage: checked ? "checkmark.circle.fill" : "checkmark.circle") {
+                toggleCheckIn(id, on: day)
+            }
+            .help(checked ? "Remove the check-in on this day" : "Mark that the student reported on this day")
+        } else if students.count > 1 {
+            let present = Set(pins.map(\.session.studentId))
+            Menu("Check In", systemImage: "checkmark.circle") {
+                let free = students.filter { !present.contains($0.id!) }
+                    .sorted { $0.fullName.localizedStandardCompare($1.fullName) == .orderedAscending }
+                ForEach(free) { s in
+                    Button("\(s.emoji) \(s.fullName)") { toggleCheckIn(s.id!, on: day) }
+                }
+                if free.isEmpty { Text("Every student has a report on this day") }
+            }
+            .menuIndicator(.hidden)
+            .fixedSize()
+            .help("Mark that a student reported on this day")
+        }
+    }
+
+    private func toggleCheckIn(_ studentID: Int64, on day: Date) {
+        do { try db.toggleCheckIn(studentId: studentID, on: day) } catch { self.error = error.localizedDescription }
     }
 
     @ViewBuilder private func menu(for item: StudentSession) -> some View {
@@ -159,8 +192,13 @@ struct SessionBoard: View {
                 .disabled(session.status == .recording)
         }
         Divider()
-        Button("Delete…", role: .destructive) { deleting = session }
-            .disabled(session.status == .recording)
+        if session.isCheckIn {
+            // Ticking again is one click, so removing a check-in doesn't ask.
+            Button("Remove Check-in", role: .destructive) { delete(session) }
+        } else {
+            Button("Delete…", role: .destructive) { deleting = session }
+                .disabled(session.status == .recording)
+        }
     }
 
     private func addNote(on day: Date) {
@@ -241,12 +279,13 @@ private struct WeekHeader: View {
     }
 }
 
-/// One day of the board: the date on the left, its pins wrapping to the right, + on hover.
-private struct DayRow<Pins: View>: View {
+/// One day of the board: the date on the left, its pins wrapping to the right, ✓ and + on hover.
+private struct DayRow<Pins: View, CheckIn: View>: View {
     let day: Date
     let isEmpty: Bool
     var onAdd: (() -> Void)?
     @ViewBuilder var pins: Pins
+    @ViewBuilder var checkIn: CheckIn
     @State private var hovering = false
 
     var body: some View {
@@ -266,11 +305,14 @@ private struct DayRow<Pins: View>: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
 
             if let onAdd {
-                Button("Add Note", systemImage: "plus", action: onAdd)
-                    .labelStyle(.iconOnly)
-                    .buttonStyle(.borderless)
-                    .help("Add a note to this day")
-                    .opacity(hovering ? 1 : 0)
+                HStack(spacing: 6) {
+                    checkIn
+                    Button("Add Note", systemImage: "plus", action: onAdd)
+                        .help("Add a note to this day")
+                }
+                .labelStyle(.iconOnly)
+                .buttonStyle(.borderless)
+                .opacity(hovering ? 1 : 0)
             }
         }
         .padding(.vertical, isEmpty ? 6 : 10)
@@ -329,6 +371,33 @@ private struct PinCard: View {
     }
 }
 
+/// A check-in as a small green capsule (D41): there's no text to show, so it takes far less room than a card.
+private struct CheckInPin: View {
+    let item: StudentSession
+    let showsStudent: Bool
+
+    var body: some View {
+        HStack(spacing: 5) {
+            Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+            if showsStudent {
+                Text("\(item.student.emoji) \(item.student.fullName)").lineLimit(1)
+            } else {
+                Text("Checked in")
+            }
+            Text(item.session.date, format: .dateTime.hour().minute())
+                .monospacedDigit()
+                .foregroundStyle(.secondary)
+        }
+        .font(.callout)
+        .padding(.leading, 6)
+        .padding(.trailing, 10)
+        .padding(.vertical, 4)
+        .background(Color.green.opacity(0.14), in: .capsule)
+        .overlay { Capsule().strokeBorder(Color.green.opacity(0.35)) }
+        .contentShape(.capsule)
+    }
+}
+
 /// A pin in a Month cell: kind icon and time.
 private struct MonthChip: View {
     let session: Session
@@ -337,17 +406,17 @@ private struct MonthChip: View {
     var body: some View {
         Button(action: action) {
             HStack(spacing: 4) {
-                Image(systemName: session.hasAudio ? "waveform" : "note.text")
+                Image(systemName: session.kindSymbol)
                 Text(session.date, format: .dateTime.hour().minute()).monospacedDigit()
             }
             .font(.caption)
             .lineLimit(1)
             .padding(.horizontal, 6)
             .padding(.vertical, 2)
-            .background((session.hasAudio ? Color.accentColor : .yellow).opacity(0.18), in: .capsule)
+            .background(session.kindTint.opacity(0.18), in: .capsule)
         }
         .buttonStyle(.plain)
-        .help(session.hasAudio ? session.statusLabel : session.note)
+        .help(session.hasAudio ? session.statusLabel : session.isCheckIn ? "Check-in" : session.note)
     }
 }
 
@@ -403,11 +472,16 @@ enum SessionActions {
         if let path = try db.deleteSession(id: id) { AppPaths.trashAudio([path]) }
     }
 
+    static func deleteTitle(for session: Session) -> String {
+        session.hasAudio ? "Delete this session?" : session.isCheckIn ? "Remove this check-in?" : "Delete this note?"
+    }
+
     static func deleteMessage(for session: Session) -> String {
         let when = session.date.formatted(date: .abbreviated, time: .shortened)
-        return session.hasAudio
-            ? "The session of \(when) is permanently deleted with its transcript, summary and note. The recording is moved to the Trash."
-            : "The note of \(when) is permanently deleted."
+        if session.hasAudio {
+            return "The session of \(when) is permanently deleted with its transcript, summary and note. The recording is moved to the Trash."
+        }
+        return session.isCheckIn ? "The check-in of \(when) is removed." : "The note of \(when) is permanently deleted."
     }
 
     static func revealAudio(of session: Session) {
@@ -419,4 +493,11 @@ enum SessionActions {
             NSWorkspace.shared.open(url.deletingLastPathComponent())
         }
     }
+}
+
+/// How each kind of pin looks everywhere (D36, D41): blue waveform = recording, yellow = note, green ✓ = check-in.
+extension Session {
+    var kindSymbol: String { hasAudio ? "waveform" : isCheckIn ? "checkmark.circle.fill" : "note.text" }
+    var kindTint: Color { hasAudio ? .accentColor : isCheckIn ? .green : .yellow }
+    var kindName: String { hasAudio ? "Recording" : isCheckIn ? "Check-in" : "Note" }
 }

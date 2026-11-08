@@ -99,7 +99,8 @@ enum SessionStatus: String, Codable, Sendable {
 }
 
 /// One pin on the day board (D36): a recording (audio → transcript → optional summary) or, when
-/// `audioPath` is nil, a text note the teacher typed. Either one counts as the student reporting that day.
+/// `audioPath` is nil, a text note the teacher typed, or a check-in when that note is empty too (D41).
+/// Each one counts as the student reporting that day.
 struct Session: Codable, Hashable, Identifiable, Sendable, MutablePersistableRecord, LocalTimestampRecord {
     var id: Int64?
     var studentId: Int64
@@ -128,6 +129,9 @@ struct Session: Codable, Hashable, Identifiable, Sendable, MutablePersistableRec
 
 extension Session {
     var hasAudio: Bool { audioPath != nil }
+
+    /// A check-in (D41): the teacher only ticked that the student reported, with no recording and no text.
+    var isCheckIn: Bool { audioPath == nil && note.isEmpty }
 
     /// A recording can be transcribed (again) once recording stopped and nothing else is running.
     var canTranscribe: Bool { hasAudio && [.recorded, .failed, .done].contains(status) }

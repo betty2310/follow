@@ -296,6 +296,41 @@ struct AppDatabaseTests {
         #expect(try db.sessions(studentId: studentID).isEmpty)
     }
 
+    @Test func checkInTogglesPerDayAndLeavesNotesAlone() throws {
+        let db = try AppDatabase.inMemory()
+        let g = try db.importStudents([row("1", "An"), row("2", "Bình")], intoNewGroupNamed: "A")
+        let (an, binh) = try (db.progress(groupId: g)[0].id, db.progress(groupId: g)[1].id)
+        let cal = WeekCalendar.calendar
+        let now = cal.date(from: DateComponents(year: 2026, month: 11, day: 4, hour: 9, minute: 40))!   // a Wednesday
+        let monday = cal.date(from: DateComponents(year: 2026, month: 11, day: 2))!
+        let note = try #require(try db.addNote(studentId: an, date: now.addingTimeInterval(-600), text: "Ghi chú"))
+
+        // Today: a check-in at the current time, next to the note, and only for that student.
+        #expect(try db.toggleCheckIn(studentId: an, on: now, now: now))
+        let checkIn = try #require(try db.sessions(studentId: an).first { $0.id != note.id })
+        #expect(checkIn.isCheckIn && !note.isCheckIn && checkIn.date == now)
+        #expect(try db.sessions(studentId: binh).isEmpty)
+
+        // A past day gets midday, and toggling it doesn't touch today's.
+        #expect(try db.toggleCheckIn(studentId: an, on: monday, now: now))
+        #expect(try db.sessions(studentId: an).contains { $0.isCheckIn && $0.date == cal.date(byAdding: .hour, value: 12, to: monday)! })
+        #expect(try !db.toggleCheckIn(studentId: an, on: monday, now: now))
+        #expect(try db.sessions(studentId: an).map(\.id).sorted { $0! < $1! } == [note.id, checkIn.id])
+
+        // Toggling today again removes the check-in but keeps the note on the same day.
+        #expect(try !db.toggleCheckIn(studentId: an, on: now.addingTimeInterval(3600), now: now))
+        #expect(try db.sessions(studentId: an).map(\.id) == [note.id])
+    }
+
+    @Test func checkInCountsAsReported() throws {
+        let db = try AppDatabase.inMemory()
+        let g = try db.importStudents([row("1", "An")], intoNewGroupNamed: "A")
+        let id = try db.progress(groupId: g)[0].id
+        try db.toggleCheckIn(studentId: id, on: .now)
+        #expect(try db.progress(groupId: g)[0].hasReported(in: WeekCalendar.week(of: .now)))
+        #expect(try db.sessions(groupId: g).first?.session.isCheckIn == true)
+    }
+
     @Test func groupSessionsCarryTheirStudentOldestFirst() throws {
         let db = try AppDatabase.inMemory()
         let g = try db.importStudents([row("1", "An"), row("2", "Bình")], intoNewGroupNamed: "A")

@@ -68,10 +68,13 @@ private struct StatTile: View {
     }
 }
 
-/// Students who haven't reported this week, on one line that scrolls sideways.
+/// Students who haven't reported this week, on one line that scrolls sideways. Click a name to open the
+/// student; click its ✓ to check them in today (D41).
 private struct MissingList: View {
+    @Environment(\.appDatabase) private var db
     let students: [StudentProgress]
     var onSelect: (Int64) -> Void
+    @State private var error: String?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -79,15 +82,31 @@ private struct MissingList: View {
             ScrollView(.horizontal) {
                 HStack(spacing: 6) {
                     ForEach(students) { s in
-                        Button("\(s.student.emoji) \(s.student.fullName)") { onSelect(s.id) }
-                            .buttonStyle(.bordered)
-                            .buttonBorderShape(.capsule)
-                            .controlSize(.small)
+                        HStack(spacing: 2) {
+                            Button("\(s.student.emoji) \(s.student.fullName)") { onSelect(s.id) }
+                                .buttonStyle(.borderless)
+                                .padding(.leading, 8)
+                            Button("Check In", systemImage: "checkmark.circle") { checkIn(s.id) }
+                                .labelStyle(.iconOnly)
+                                .buttonStyle(.borderless)
+                                .help("Check in \(s.student.fullName) today")
+                                .padding(.trailing, 4)
+                        }
+                        .controlSize(.small)
+                        .padding(.vertical, 2)
+                        .background(.quaternary.opacity(0.6), in: .capsule)
                     }
                 }
             }
             .scrollIndicators(.never)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .alert("Error", isPresented: .constant(error != nil)) {
+            Button("OK") { error = nil }
+        } message: { Text(error ?? "") }
+    }
+
+    private func checkIn(_ studentID: Int64) {
+        do { try db.toggleCheckIn(studentId: studentID, on: .now) } catch { self.error = error.localizedDescription }
     }
 }

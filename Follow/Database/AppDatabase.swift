@@ -374,6 +374,25 @@ extension AppDatabase {
         return try insertSession(Session(studentId: studentId, date: date, audioPath: nil, status: .done, note: text))
     }
 
+    /// Ticks or unticks that the student reported on `day` (D41): removes their check-in on that day if there is
+    /// one, otherwise adds one (now when `day` is today, midday otherwise). Notes and recordings are never touched.
+    /// Returns whether the student is checked in on that day afterwards.
+    @discardableResult
+    func toggleCheckIn(studentId: Int64, on day: Date, now: Date = .now) throws -> Bool {
+        try writer.write { db in
+            let cal = WeekCalendar.calendar
+            let existing = try Session.filter(Session.Columns.studentId == studentId).fetchAll(db)
+                .filter { $0.isCheckIn && cal.isDate($0.date, inSameDayAs: day) }
+            if !existing.isEmpty {
+                for session in existing { try session.delete(db) }
+                return false
+            }
+            var session = Session(studentId: studentId, date: WeekCalendar.time(on: day, now: now), audioPath: nil, status: .done)
+            try session.insert(db)
+            return true
+        }
+    }
+
     /// Deletes the session. Returns its audio path (relative to `AppPaths.root`), if it has one,
     /// so the caller can remove the file.
     @discardableResult

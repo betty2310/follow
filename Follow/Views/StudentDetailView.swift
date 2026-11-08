@@ -39,6 +39,12 @@ struct StudentDetailView: View {
                     .help("Show every session's note")
             }
             ToolbarItem {
+                // Pressed while the student is checked in today; a second click undoes it (D41).
+                Toggle("Check In", systemImage: "checkmark.circle", isOn: checkedInToday)
+                    .disabled(student == nil)
+                    .help("Mark that this student reported today, without a note or recording")
+            }
+            ToolbarItem {
                 Button("New Note", systemImage: "square.and.pencil") {
                     sheet = .newNote(on: .now, studentID: studentID)
                 }
@@ -78,6 +84,14 @@ struct StudentDetailView: View {
             do {
                 for try await value in db.observeSessions(studentId: studentID) { sessions = value }
             } catch {}
+        }
+    }
+
+    private var checkedInToday: Binding<Bool> {
+        Binding {
+            sessions.contains { $0.isCheckIn && WeekCalendar.calendar.isDateInToday($0.date) }
+        } set: { _ in
+            do { try db.toggleCheckIn(studentId: studentID, on: .now) } catch { self.error = error.localizedDescription }
         }
     }
 

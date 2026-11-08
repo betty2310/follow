@@ -3,7 +3,8 @@ import SwiftUI
 /// The dialog a pin opens (D36). A text note is just its date and text. A recording adds a player,
 /// the note, the summary (made on demand with **Summarize with AI**, editable) and the labeled transcript;
 /// when the dialog is wide enough, the summary and the transcript sit side by side and scroll separately.
-/// Changes save as you go; closing the dialog with a text note emptied deletes it.
+/// Changes save as you go. A check-in opens here too: typing a note turns it into a note, and emptying
+/// a note turns it back into a check-in, so the day still counts (D41).
 struct SessionDetailSheet: View {
     @Environment(\.appDatabase) private var db
     @Environment(\.dismiss) private var dismiss
@@ -57,7 +58,7 @@ struct SessionDetailSheet: View {
             try? await Task.sleep(for: .milliseconds(600))
             if !Task.isCancelled { saveNote() }
         }
-        .alert(session?.hasAudio == false ? "Delete this note?" : "Delete this session?", isPresented: $confirmingDelete) {
+        .alert(session.map(SessionActions.deleteTitle) ?? "", isPresented: $confirmingDelete) {
             Button("Delete", role: .destructive, action: delete)
         } message: {
             if let session { Text(SessionActions.deleteMessage(for: session)) }
@@ -137,9 +138,9 @@ struct SessionDetailSheet: View {
     private func headerInfo(_ session: Session) -> some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(spacing: 8) {
-                Image(systemName: session.hasAudio ? "waveform" : "note.text")
-                    .foregroundStyle(session.hasAudio ? Color.accentColor : .yellow)
-                Text(session.hasAudio ? "Recording" : "Note")
+                Image(systemName: session.kindSymbol)
+                    .foregroundStyle(session.kindTint)
+                Text(session.kindName)
                 if let student {
                     Text("· \(student.emoji) \(student.fullName)").foregroundStyle(.secondary)
                 }
@@ -273,13 +274,7 @@ struct SessionDetailSheet: View {
 
     private func close() {
         player.stop()
-        guard let current = try? db.session(id: sessionID) else { return }
-        // An emptied text note has nothing left to show.
-        if !current.hasAudio && note.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            try? SessionActions.delete(current, db: db)
-        } else {
-            saveNote()
-        }
+        saveNote()
     }
 
     private func delete() {

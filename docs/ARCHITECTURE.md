@@ -4,6 +4,7 @@
 
 ```
 New Note ──────────────────────────────▶ Session (audioPath NULL, status: done, note)
+Check In ──────────────────────────────▶ Session (audioPath NULL, status: done, note empty)
 
 Record (AVAudioRecorder, .m4a)  ─┐
 Import audio file ───────────────┤
@@ -17,7 +18,7 @@ Import audio file ───────────────┤
           SummaryResult: teacherSpeaker ("A"/"B") + Vietnamese markdown summary   (status: done)
 ```
 
-A session is one **pin** on the day board (D36): a recording, or a text note (no audio). `SessionProcessor.transcribe(sessionId:db:)` runs after Stop; `SessionProcessor.summarize(sessionId:db:)` only when the teacher asks. Both run off the main actor, write status and results to the DB as they go, and the UI updates through observations. Errors are stored on the session so the user can retry.
+A session is one **pin** on the day board (D36): a recording, a text note (no audio), or a check-in (no audio, no note, D41). `SessionProcessor.transcribe(sessionId:db:)` runs after Stop; `SessionProcessor.summarize(sessionId:db:)` only when the teacher asks. Both run off the main actor, write status and results to the DB as they go, and the UI updates through observations. Errors are stored on the session so the user can retry.
 
 ## Layout
 
@@ -42,7 +43,7 @@ File: `~/Documents/Follow/Follow.sqlite`. Open it with any SQLite viewer.
 |---|---|
 | `studentGroup` | `id`, `name`, `createdAt`, `archivedAt` (null = active) |
 | `student` | `id`, `groupId` → studentGroup (cascade), `mssv`, `fullName`, `className`, `projectTitle`, `email`; unique (`groupId`, `mssv`) |
-| `session` | `id`, `studentId` → student (cascade), `date`, `audioPath` (NULL = text note, D36), `status`, `errorMessage`, `transcriptEngine`, `utterances` (JSON), `teacherSpeaker`, `summaryMarkdown`, `note` (teacher's own note, D29) |
+| `session` | `id`, `studentId` → student (cascade), `date`, `audioPath` (NULL = text note, D36; NULL with an empty note = check-in, D41), `status`, `errorMessage`, `transcriptEngine`, `utterances` (JSON), `teacherSpeaker`, `summaryMarkdown`, `note` (teacher's own note, D29) |
 
 Rules:
 - **Only `AppDatabase` touches SQL.** Views read with `db.observeX()` inside `.task { for try await … }` and write with `AppDatabase` methods.

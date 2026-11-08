@@ -99,8 +99,8 @@ struct SessionNotesView: View {
                 Button { session.id.map(onOpen) } label: {
                     VStack(alignment: .leading, spacing: 4) {
                         HStack(spacing: 6) {
-                            Image(systemName: session.hasAudio ? "waveform" : "note.text")
-                                .foregroundStyle(session.hasAudio ? Color.accentColor : .yellow)
+                            Image(systemName: session.kindSymbol)
+                                .foregroundStyle(session.kindTint)
                             Text(session.date, format: .dateTime.weekday(.abbreviated).day().month(.abbreviated).year())
                                 .font(.subheadline.bold())
                             Spacer()
