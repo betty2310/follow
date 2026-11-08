@@ -6,7 +6,7 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 - [x] Design interview, decisions (`docs/DECISIONS.md`)
 - [x] XcodeGen project, engine protocols, app shell that builds
 - [x] GRDB/SQLite database layer with migrations (`AppDatabase`)
-- [x] Penguin emoji app icon with standard macOS sizes and asset catalog configuration
+- [x] App icon: the Paper cat mascot taking notes on a clipboard (`docs/design/app-icon.png`), in the standard macOS sizes
 
 ## M1: Groups & students
 - [x] Import sheet: instructions, column mapping (auto-guess + manual), target group (existing/new), new/updated preview, name normalization (`ImportStudentsView`, `StudentImporter`)

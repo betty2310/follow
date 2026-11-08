@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/design/mascot.png" alt="Follow mascot: a white cat taking notes on a clipboard" width="320">
+</p>
+
 # Follow
 
 A native macOS app for tracking weekly 1:1 project reports from students. It records each session, transcribes the Vietnamese conversation with speaker labels, and writes a Vietnamese summary.
