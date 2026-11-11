@@ -3,13 +3,12 @@ import SwiftUI
 /// A student's page: the project title, then the day board of their recordings and notes (D36).
 struct StudentDetailView: View {
     @Environment(\.appDatabase) private var db
+    @Environment(AudioRecorder.self) private var recorder
     let studentID: Int64
     let groupName: String
     @State private var student: Student?
     @State private var sessions: [Session] = []
     @State private var sheet: SessionSheet?
-    @State private var recorder = AudioRecorder()
-    @State private var activeSessionID: Int64?
     @State private var error: String?
     @AppStorage("student.showNotes") private var showNotes = false
 
@@ -56,13 +55,15 @@ struct StudentDetailView: View {
             // (not red, which reads as destructive).
             ToolbarItem {
                 Group {
-                    if recorder.isRecording {
+                    if recorder.session?.studentId == studentID {
                         Button("Stop", systemImage: "stop.fill", action: stop)
                             .help("Stop recording and transcribe")
                     } else {
                         Button("Record", systemImage: "record.circle", action: record)
                             .disabled(student == nil)
-                            .help("Record this week's session")
+                            .help(recorder.isRecording
+                                  ? "Stop the other student's recording, transcribe it, and record this student"
+                                  : "Record this week's session")
                     }
                 }
                 .labelStyle(.titleAndIcon)
@@ -100,14 +101,15 @@ struct StudentDetailView: View {
         sessions = (try? db.sessions(studentId: studentID)) ?? []
     }
 
+    /// Recording another student stops theirs first, which is then transcribed like after Stop.
     private func record() {
         guard let student else { return }
+        stop()
         let path = AppPaths.newAudioRelativePath(group: groupName, mssv: student.mssv)
         do {
             let session = try db.insertSession(Session(studentId: studentID, date: .now, audioPath: path, status: .recording))
             do {
-                try recorder.start(to: AppPaths.absolute(path))
-                activeSessionID = session.id
+                try recorder.start(to: AppPaths.absolute(path), session: session.id!, studentId: studentID)
             } catch {
                 _ = try? db.deleteSession(id: session.id!)
                 throw error
@@ -119,9 +121,7 @@ struct StudentDetailView: View {
 
     /// Stops and transcribes right away; summarizing waits until the teacher asks for it (D36).
     private func stop() {
-        recorder.stop()
-        guard let id = activeSessionID else { return }
-        activeSessionID = nil
+        guard let id = recorder.stop() else { return }
         try? db.updateSession(id: id) { $0.status = .recorded }
         SessionActions.transcribe(id, db: db)
     }

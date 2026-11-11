@@ -440,6 +440,29 @@ extension AppDatabase {
         }
     }
 
+    /// At launch, nothing records yet, so a session still `.recording` was cut off (the app quit, or the
+    /// recorder was lost). One whose audio file exists becomes `.recorded`, so it can be transcribed;
+    /// one without audio is marked failed, so the teacher sees why and can delete it.
+    /// Returns the sessions that became `.recorded`.
+    func recoverInterruptedRecordings(audioExists: (String) -> Bool) throws -> [Int64] {
+        let stuck = try writer.read { db in
+            try Session.filter(Session.Columns.status == SessionStatus.recording.rawValue).fetchAll(db)
+        }
+        let recovered = stuck.filter { $0.audioPath.map(audioExists) ?? false }.compactMap(\.id)
+        try writer.write { db in
+            for var session in stuck {
+                if recovered.contains(session.id!) {
+                    session.status = .recorded
+                } else {
+                    session.status = .failed
+                    session.errorMessage = "The recording was interrupted and no audio was saved."
+                }
+                try session.update(db)
+            }
+        }
+        return recovered
+    }
+
     /// Read-modify-write a session in one transaction.
     func updateSession(id: Int64, _ change: @Sendable (inout Session) -> Void) throws {
         try writer.write { db in

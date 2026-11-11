@@ -124,6 +124,7 @@ struct Session: Codable, Hashable, Identifiable, Sendable, MutablePersistableRec
     enum Columns {
         static let studentId = Column(CodingKeys.studentId)
         static let date = Column(CodingKeys.date)
+        static let status = Column(CodingKeys.status)
     }
 }
 

@@ -4,6 +4,7 @@ import SwiftUI
 struct FollowApp: App {
     let database: AppDatabase
     @State private var updater = AppUpdater()
+    @State private var recorder = AudioRecorder()
 
     init() {
         // Unit tests run inside the app (TEST_HOST): keep them away from the real data folder,
@@ -23,6 +24,11 @@ struct FollowApp: App {
         } catch {
             fatalError("Failed to open database at \(AppPaths.database.path): \(error)")
         }
+        // Transcribe recordings that were cut off last time, as Stop would have.
+        let recovered = (try? database.recoverInterruptedRecordings {
+            FileManager.default.fileExists(atPath: AppPaths.absolute($0).path)
+        }) ?? []
+        for id in recovered { SessionActions.transcribe(id, db: database) }
     }
 
     var body: some Scene {
@@ -31,6 +37,7 @@ struct FollowApp: App {
         }
         .environment(\.appDatabase, database)
         .environment(updater)
+        .environment(recorder)
         .commands {
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") { updater.checkForUpdates() }

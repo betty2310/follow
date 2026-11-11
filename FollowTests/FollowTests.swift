@@ -267,6 +267,25 @@ struct AppDatabaseTests {
         #expect(try db.progress(groupId: g)[0].sessionDates.count == 1)
     }
 
+    @Test func interruptedRecordingsAreRecoveredAtLaunch() throws {
+        let db = try AppDatabase.inMemory()
+        let g = try db.importStudents([row("1", "An")], intoNewGroupNamed: "A")
+        let studentID = try db.progress(groupId: g)[0].id
+        let saved = try db.insertSession(Session(studentId: studentID, date: .now, audioPath: "audio/A/1/saved.m4a", status: .recording))
+        let lost = try db.insertSession(Session(studentId: studentID, date: .now, audioPath: "audio/A/1/lost.m4a", status: .recording))
+        let failed = try db.insertSession(Session(studentId: studentID, date: .now, audioPath: "audio/A/1/old.m4a", status: .failed))
+
+        let recovered = try db.recoverInterruptedRecordings { $0 != "audio/A/1/lost.m4a" }
+
+        #expect(recovered == [saved.id!])
+        #expect(try db.session(id: saved.id!)?.status == .recorded)
+        #expect(try db.session(id: lost.id!)?.status == .failed)
+        #expect(try db.session(id: lost.id!)?.errorMessage != nil)
+        // Sessions that weren't recording are left alone, and a second launch finds nothing.
+        #expect(try db.session(id: failed.id!)?.errorMessage == nil)
+        #expect(try db.recoverInterruptedRecordings { _ in true }.isEmpty)
+    }
+
     @Test func migrationGivesExistingSessionsAnEmptyNote() throws {
         let queue = try DatabaseQueue()
         try AppDatabase.migrator.migrate(queue, upTo: "v3-group-archive")

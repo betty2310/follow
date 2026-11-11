@@ -22,6 +22,7 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 - [ ] Recording UI: timer and level meter; record the next student while others process
 - [ ] Import an existing audio file into a session
 - [x] Session card: Show in Finder button; Re-run also for sessions stuck in `recorded`
+- [x] One app-wide recorder: Record on another student stops and transcribes the current recording; sessions cut off mid-recording are recovered at launch (D12)
 
 ## M3: Transcription
 - [x] `SonioxEngine` (default, `stt-async-v6`): upload → create transcription → poll → map tokens to utterances → delete remote file/transcription
