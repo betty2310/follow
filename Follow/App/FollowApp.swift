@@ -42,6 +42,7 @@ struct FollowApp: App {
             CommandGroup(after: .appInfo) {
                 Button("Check for Updates…") { updater.checkForUpdates() }
             }
+            LibraryCommands()
         }
 
         Settings {

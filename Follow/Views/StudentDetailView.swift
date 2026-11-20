@@ -6,7 +6,10 @@ struct StudentDetailView: View {
     @Environment(AudioRecorder.self) private var recorder
     let studentID: Int64
     let groupName: String
+    var onOpenStudent: (Int64) -> Void
     @State private var student: Student?
+    /// The student being recorded when it isn't this one, shown as a chip that opens their page.
+    @State private var recordingStudent: Student?
     @State private var sessions: [Session] = []
     @State private var sheet: SessionSheet?
     @State private var error: String?
@@ -27,23 +30,35 @@ struct StudentDetailView: View {
             SessionNotesView(sessions: sessions) { sheet = .open($0) }
                 .inspectorColumnWidth(min: 240, ideal: 300)
         }
+        // Recording here stops the other student's recording, which hides their chip.
+        .onChange(of: recorder.session?.studentId) { loadRecordingStudent() }
+        // Grouped by job (D43): the three ways to log progress together, Record last and the only
+        // colored button (D33), then the Notes panel toggle at the trailing edge.
         .toolbar {
             // The student's animal sits just before the name in the title bar (D35).
             ToolbarItem(placement: .navigation) {
                 StudentEmojiButton(student: student, size: 22)
             }
             .sharedBackgroundVisibility(.hidden)
-            ToolbarItem {
-                Toggle("Notes", systemImage: "list.bullet.rectangle", isOn: $showNotes)
-                    .help("Show every session's note")
+            if let other = recordingStudent, let id = other.id {
+                ToolbarItem {
+                    Button { onOpenStudent(id) } label: {
+                        RecordingTimer(recorder: recorder) { time in
+                            Label("\(other.fullName)  \(time)", systemImage: "circle.fill")
+                        }
+                        .imageScale(.small)
+                        .labelStyle(.titleAndIcon)
+                        .foregroundStyle(.red)
+                    }
+                    .help("Recording \(other.fullName). Click to open their page.")
+                }
+                ToolbarSpacer(.fixed)
             }
-            ToolbarItem {
+            ToolbarItemGroup {
                 // Pressed while the student is checked in today; a second click undoes it (D41).
                 Toggle("Check In", systemImage: "checkmark.circle", isOn: checkedInToday)
                     .disabled(student == nil)
                     .help("Mark that this student reported today, without a note or recording")
-            }
-            ToolbarItem {
                 Button("New Note", systemImage: "square.and.pencil") {
                     sheet = .newNote(on: .now, studentID: studentID)
                 }
@@ -51,13 +66,17 @@ struct StudentDetailView: View {
                 .help("Write a note about this student's progress")
             }
             ToolbarSpacer(.fixed)
-            // Recording is what this page is for: a labeled, accent-colored button on its own
-            // (not red, which reads as destructive).
             ToolbarItem {
                 Group {
                     if recorder.session?.studentId == studentID {
-                        Button("Stop", systemImage: "stop.fill", action: stop)
-                            .help("Stop recording and transcribe")
+                        // Red with a running timer while live, like other macOS recorders.
+                        Button(action: stop) {
+                            RecordingTimer(recorder: recorder) { time in
+                                Label("\(time)  Stop", systemImage: "stop.fill")
+                            }
+                        }
+                        .tint(.red)
+                        .help("Stop recording and transcribe")
                     } else {
                         Button("Record", systemImage: "record.circle", action: record)
                             .disabled(student == nil)
@@ -68,6 +87,11 @@ struct StudentDetailView: View {
                 }
                 .labelStyle(.titleAndIcon)
                 .buttonStyle(.borderedProminent)
+            }
+            ToolbarSpacer(.fixed)
+            ToolbarItem {
+                Toggle("Notes", systemImage: "sidebar.trailing", isOn: $showNotes)
+                    .help(showNotes ? "Hide the notes panel" : "Show every session's note")
             }
         }
         .alert("Error", isPresented: .constant(error != nil)) {
@@ -99,6 +123,12 @@ struct StudentDetailView: View {
     private func preload() {
         student = try? db.student(id: studentID)
         sessions = (try? db.sessions(studentId: studentID)) ?? []
+        loadRecordingStudent()
+    }
+
+    /// Read in `preload`, not in a `.task`: a toolbar item that appears after the first frame never shows.
+    private func loadRecordingStudent() {
+        recordingStudent = recorder.session.flatMap { $0.studentId == studentID ? nil : try? db.student(id: $0.studentId) }
     }
 
     /// Recording another student stops theirs first, which is then transcribed like after Stop.
@@ -124,6 +154,19 @@ struct StudentDetailView: View {
         guard let id = recorder.stop() else { return }
         try? db.updateSession(id: id) { $0.status = .recorded }
         SessionActions.transcribe(id, db: db)
+    }
+}
+
+/// The running recording's elapsed time as m:ss, refreshed every second.
+private struct RecordingTimer<Content: View>: View {
+    let recorder: AudioRecorder
+    @ViewBuilder var content: (String) -> Content
+
+    var body: some View {
+        TimelineView(.periodic(from: .now, by: 1)) { _ in
+            content(Duration.seconds(Int(recorder.currentTime)).formatted(.time(pattern: .minuteSecond)))
+                .monospacedDigit()
+        }
     }
 }
 

@@ -43,8 +43,10 @@ struct ContentView: View {
     var body: some View {
         NavigationSplitView {
             List(selection: $selection) {
-                Section("Groups") {
+                Section {
                     ForEach(active) { groupRow($0) }
+                } header: {
+                    groupsHeader
                 }
                 if !archived.isEmpty {
                     Section("Archived", isExpanded: Binding(get: { showArchived || !search.isEmpty }, set: { showArchived = $0 })) {
@@ -67,16 +69,15 @@ struct ContentView: View {
             .searchable(text: $search, placement: .sidebar, prompt: "Search students")
             .navigationSplitViewColumnWidth(min: 240, ideal: 280)
             .toolbar {
-                Button(allCollapsed ? "Show Students" : "Hide Students",
-                       systemImage: allCollapsed ? "rectangle.expand.vertical" : "rectangle.compress.vertical") {
-                    setCollapsed(active.map(\.id), !allCollapsed)
+                // One + menu for every way to add to the library, so the sidebar toolbar never overflows (D43).
+                Menu("Add", systemImage: "plus") {
+                    Button("New Group…", systemImage: "folder.badge.plus") { startNaming(nil) }
+                    Button("Add Student…", systemImage: "person.badge.plus") { adding = true }
+                        .disabled(groups.isEmpty)
+                    Divider()
+                    Button("Import Students from Excel…", systemImage: "square.and.arrow.down") { importing = true }
                 }
-                .help(allCollapsed ? "Show the students in every group" : "Collapse every group to just its name")
-                Button("New Group…", systemImage: "folder.badge.plus") { startNaming(nil) }
-                Button("Add Student…", systemImage: "person.badge.plus") { adding = true }
-                    .disabled(groups.isEmpty)
-                    .help("Add one student to a group")
-                Button("Import Students…", systemImage: "square.and.arrow.down") { importing = true }
+                .help("New group, add a student, or import a student list")
             }
         } detail: {
             // Cross-fade between groups and students rather than swapping in one frame.
@@ -84,6 +85,7 @@ struct ContentView: View {
                 // Above the switch, so the cat keeps its spot and what it's doing across pages (D38).
                 .overlay { CatPlayground() }
         }
+        .focusedSceneValue(\.libraryActions, libraryActions)
         .sheet(isPresented: $importing) {
             ImportStudentsView(groups: groups.map(\.group), defaultGroupID: currentGroup?.id) { groupID in
                 setCollapsed([groupID], false)
@@ -142,6 +144,33 @@ struct ContentView: View {
     }
 
     // MARK: Sidebar rows
+
+    /// Collapse all sits with the list it changes, not with the toolbar's create actions (D43).
+    private var groupsHeader: some View {
+        HStack {
+            Text("Groups")
+            Spacer()
+            if !active.isEmpty && search.isEmpty {
+                Button(allCollapsed ? "Expand All Groups" : "Collapse All Groups",
+                       systemImage: allCollapsed ? "rectangle.expand.vertical" : "rectangle.compress.vertical",
+                       action: toggleAllCollapsed)
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                    // Lines the icon up with the rows' badges and check-in circles.
+                    .padding(.trailing, 12)
+                    .help(allCollapsed ? "Show the students in every group" : "Collapse every group to just its name")
+            }
+        }
+    }
+
+    private var libraryActions: LibraryActions {
+        LibraryActions(newGroup: { startNaming(nil) },
+                       addStudent: { adding = true },
+                       importStudents: { importing = true },
+                       toggleCollapsed: toggleAllCollapsed,
+                       hasGroups: !groups.isEmpty,
+                       allCollapsed: allCollapsed)
+    }
 
     /// The group with only the students matching the search, or nil if nothing matches.
     private func filtered(_ g: GroupProgress) -> GroupProgress? {
@@ -203,6 +232,16 @@ struct ContentView: View {
                 deletingStudent = groups.lazy.flatMap(\.students).first { $0.id == id }
             }
         }
+    }
+
+    private func toggleAllCollapsed() {
+        setCollapsed(active.map(\.id), !allCollapsed)
+    }
+
+    /// Selects a student and shows them in the sidebar, even when their group is collapsed.
+    private func open(student id: Int64) {
+        if let owner = groups.first(where: { $0.students.contains { $0.id == id } }) { setCollapsed([owner.id], false) }
+        selection = .student(id)
     }
 
     private func setCollapsed(_ ids: [Int64], _ isCollapsed: Bool) {
@@ -289,7 +328,7 @@ struct ContentView: View {
                 .navigationTitle(g?.group.name ?? "Dashboard")
                 .navigationSubtitle(g?.group.isArchived == true ? "Archived" : "")
         case .student(let id):
-            StudentDetailView(studentID: id, groupName: currentGroup?.group.name ?? "group").id(id)
+            StudentDetailView(studentID: id, groupName: currentGroup?.group.name ?? "group", onOpenStudent: open(student:)).id(id)
         case nil:
             ContentUnavailableView {
                 Label("No groups yet", systemImage: "folder")
@@ -364,6 +403,7 @@ private struct VersionFooter: View {
 }
 
 private struct StudentRow: View {
+    @Environment(AudioRecorder.self) private var recorder
     let progress: StudentProgress
     var onCheckIn: () -> Void
     var body: some View {
@@ -375,6 +415,14 @@ private struct StudentRow: View {
                     .font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             Spacer()
+            // The sidebar is visible from every page, so a running recording is never out of sight (D43).
+            if recorder.session?.studentId == progress.id {
+                Image(systemName: "waveform")
+                    .foregroundStyle(.red)
+                    .symbolEffect(.variableColor.iterative)
+                    .accessibilityLabel("Recording")
+                    .help("Recording")
+            }
             // Green = reported this week. A click checks the student in today, a second click undoes it (D41).
             let reported = progress.hasReported(in: WeekCalendar.week(of: .now))
             Button(action: onCheckIn) {

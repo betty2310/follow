@@ -19,7 +19,7 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 
 ## M2: Recording
 - [~] Record / stop with the Mac microphone → `.m4a` (`AudioRecorder`)
-- [ ] Recording UI: timer and level meter; record the next student while others process
+- [~] Recording UI: timer done (red Stop with m:ss, D43); level meter; record the next student while others process
 - [ ] Import an existing audio file into a session
 - [x] Session card: Show in Finder button; Re-run also for sessions stuck in `recorded`
 - [x] One app-wide recorder: Record on another student stops and transcribes the current recording; sessions cut off mid-recording are recovered at launch (D12)
@@ -48,6 +48,7 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 - [x] Check-in: tick that a student reported without a note or recording (sidebar circle, not-reported chips, student toolbar, ✓ on a day), green capsule pins (D41)
 - [x] Pin dialog: editable date, audio player (play from a transcript line), note, summary, transcript; right-click actions (`SessionDetailSheet`, D36)
 - [x] Calendar follows the selected session; session sections as cards, summary and transcript side by side when wide; Record as the primary toolbar button; cross-fade between students (D33)
+- [x] Toolbar grouped by job: + menu in the sidebar (also File menu shortcuts), collapse all in the Groups header and View menu, Check In / New Note / Record together, Notes toggle at the trailing edge, recording timer and "who is recording" chip (D43)
 - [x] Week / Month switch on the student calendar (D24; Week became Days in D36)
 - [ ] Previous week's summary shown while recording
 - [x] Session edit (date, summary) / delete (recording to Trash), a note box per session, Notes inspector on the student page (`SessionNotesView`, D29; editing moved into the pin dialog, D36)
