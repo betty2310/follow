@@ -210,6 +210,26 @@ struct AppDatabaseTests {
         #expect(!group.group.isArchived)
     }
 
+    @Test func deadlineKeepsOnlyTheDayAndDefaultsItsTitle() throws {
+        let db = try AppDatabase.inMemory()
+        let g = try db.importStudents([row("1", "An")], intoNewGroupNamed: "A")
+        let c = WeekCalendar.calendar
+        let afternoon = c.date(from: DateComponents(year: 2027, month: 1, day: 4, hour: 15, minute: 30))!
+
+        try db.setDeadline(groupId: g, afternoon, title: "  ")
+        var group = try #require(try db.groups().first).group
+        #expect(group.deadline == c.startOfDay(for: afternoon))
+        #expect(group.deadlineTitle == "Demo day")
+
+        try db.setDeadline(groupId: g, afternoon, title: " Final report ")
+        #expect(try #require(try db.groups().first).group.deadlineTitle == "Final report")
+
+        try db.setDeadline(groupId: g, nil, title: "Final report")
+        group = try #require(try db.groups().first).group
+        #expect(group.deadline == nil)
+        #expect(group.deadlineTitle.isEmpty)
+    }
+
     @Test func deleteGroupCascadesAndReturnsAudioPaths() throws {
         let db = try AppDatabase.inMemory()
         let keep = try db.importStudents([row("1", "An")], intoNewGroupNamed: "Keep")
@@ -506,6 +526,56 @@ struct WeekCalendarTests {
         let sunday = c.date(from: DateComponents(year: 2026, month: 10, day: 4, hour: 12))!
         let monday = c.date(from: DateComponents(year: 2026, month: 10, day: 5, hour: 9))!
         #expect(WeekCalendar.week(of: sunday) != WeekCalendar.week(of: monday))
+    }
+}
+
+struct CountdownTests {
+    private func day(_ y: Int, _ m: Int, _ d: Int, hour: Int = 12) -> Date {
+        WeekCalendar.calendar.date(from: DateComponents(year: y, month: m, day: d, hour: hour))!
+    }
+
+    @Test func countsInWeeksAndDays() {
+        #expect(Countdown.short(44) == "6w 2d")
+        #expect(Countdown.short(14) == "2w")
+        #expect(Countdown.short(7) == "1w")
+        #expect(Countdown.short(6) == "6 days")
+        #expect(Countdown.short(1) == "1 day")
+        #expect(Countdown.long(44) == "6 weeks, 2 days")
+        #expect(Countdown.long(8) == "1 week, 1 day")
+        #expect(Countdown.long(14) == "2 weeks")
+    }
+
+    @Test func countsCalendarDaysAndTheWeeklySessionsLeft() {
+        // Saturday evening: this week's sessions are over, so the next one is on Monday.
+        let now = day(2026, 11, 21, hour: 21), start = day(2026, 9, 7)
+
+        let far = Countdown(deadline: day(2027, 1, 4, hour: 0), start: start, now: now)
+        #expect(far.days == 44)
+        #expect(far.sessionsLeft == 6)   // Nov 23 … Dec 28; the demo itself is on Monday Jan 4
+        #expect(far.label("Demo day") == "Demo day in 6w 2d")
+        #expect(!far.isNear)
+
+        let near = Countdown(deadline: day(2026, 11, 26), start: start, now: now)
+        #expect(near.days == 5)
+        #expect(near.sessionsLeft == 1)
+        #expect(near.isNear)
+
+        let today = Countdown(deadline: day(2026, 11, 21, hour: 0), start: start, now: now)
+        #expect(today.label("Demo day") == "Demo day is today")
+        #expect(today.headline == "Today")
+        #expect(today.sessionsLeft == 0)
+
+        let past = Countdown(deadline: day(2026, 11, 12), start: start, now: now)
+        #expect(past.isPast)
+        #expect(past.label("Demo day") == "Demo day was 1w 2d ago")
+        #expect(past.progress == 1)
+    }
+
+    @Test func progressRunsFromTheGroupsStartToTheDeadline() {
+        let half = Countdown(deadline: day(2026, 12, 1), start: day(2026, 11, 1), now: day(2026, 11, 16))
+        #expect(half.progress == 0.5)
+        let before = Countdown(deadline: day(2026, 12, 1), start: day(2026, 11, 1), now: day(2026, 10, 20))
+        #expect(before.progress == 0)
     }
 }
 

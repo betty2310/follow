@@ -115,6 +115,12 @@ struct AppDatabase: Sendable {
             try db.rename(table: "newSession", to: "session")
             try db.create(index: "index_session_on_studentId", on: "session", columns: ["studentId"])
         }
+        migrator.registerMigration("v7-group-deadline") { db in
+            try db.alter(table: "studentGroup") { t in
+                t.add(column: "deadline", .datetime)
+                t.add(column: "deadlineTitle", .text).notNull().defaults(to: "")
+            }
+        }
         return migrator
     }
 }
@@ -241,6 +247,18 @@ extension AppDatabase {
         try writer.write { db in
             guard var group = try StudentGroup.fetchOne(db, id: id) else { return }
             group.archivedAt = archived ? .now : nil
+            try group.update(db)
+        }
+    }
+
+    /// Sets the day every student of the group counts down to (D44), or clears it with nil.
+    /// Only the day is kept; an empty title becomes "Demo day".
+    func setDeadline(groupId: Int64, _ date: Date?, title: String) throws {
+        try writer.write { db in
+            guard var group = try StudentGroup.fetchOne(db, id: groupId) else { return }
+            let title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+            group.deadline = date.map(WeekCalendar.calendar.startOfDay)
+            group.deadlineTitle = date == nil ? "" : title.isEmpty ? "Demo day" : title
             try group.update(db)
         }
     }

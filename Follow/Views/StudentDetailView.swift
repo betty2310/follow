@@ -6,6 +6,7 @@ struct StudentDetailView: View {
     @Environment(AudioRecorder.self) private var recorder
     let studentID: Int64
     let groupName: String
+    let group: StudentGroup?
     var onOpenStudent: (Int64) -> Void
     @State private var student: Student?
     /// The student being recorded when it isn't this one, shown as a chip that opens their page.
@@ -14,6 +15,14 @@ struct StudentDetailView: View {
     @State private var sheet: SessionSheet?
     @State private var error: String?
     @AppStorage("student.showNotes") private var showNotes = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    /// Where the student's animal is (D44): in the title until it runs into the deadline pill.
+    @State private var runner = RunnerPlace.title
+    @State private var titleAnchor = ScreenAnchor()
+    @State private var runnerAnchor = ScreenAnchor()
+
+    private enum RunnerPlace { case title, flying, pill }
+    private var hasDeadline: Bool { group?.deadline != nil }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -36,8 +45,13 @@ struct StudentDetailView: View {
         // colored button (D33), then the Notes panel toggle at the trailing edge.
         .toolbar {
             // The student's animal sits just before the name in the title bar (D35).
+            // With a deadline it runs to the pill when the page opens, and the title keeps only the name (D44).
             ToolbarItem(placement: .navigation) {
-                StudentEmojiButton(student: student, size: 22)
+                if runner != .pill || !hasDeadline {
+                    StudentEmojiButton(student: student, size: 22)
+                        .opacity(runner == .flying ? 0 : 1)
+                        .background(ScreenAnchorView(anchor: titleAnchor))
+                }
             }
             .sharedBackgroundVisibility(.hidden)
             if let other = recordingStudent, let id = other.id {
@@ -53,6 +67,12 @@ struct StudentDetailView: View {
                     .help("Recording \(other.fullName). Click to open their page.")
                 }
                 ToolbarSpacer(.fixed)
+            }
+            if let group, group.deadline != nil, let student {
+                ToolbarItem {
+                    DeadlinePill(group: group, runner: .animal(student.emoji),
+                                 runnerVisible: runner == .pill, runnerAnchor: runnerAnchor)
+                }
             }
             ToolbarItemGroup {
                 // Pressed while the student is checked in today; a second click undoes it (D41).
@@ -94,6 +114,7 @@ struct StudentDetailView: View {
                     .help(showNotes ? "Hide the notes panel" : "Show every session's note")
             }
         }
+        .task(id: group?.deadline) { await runToPill() }
         .alert("Error", isPresented: .constant(error != nil)) {
             Button("OK") { error = nil }
         } message: { Text(error ?? "") }
@@ -129,6 +150,26 @@ struct StudentDetailView: View {
     /// Read in `preload`, not in a `.task`: a toolbar item that appears after the first frame never shows.
     private func loadRecordingStudent() {
         recordingStudent = recorder.session.flatMap { $0.studentId == studentID ? nil : try? db.student(id: $0.studentId) }
+    }
+
+    /// The student's animal hops from the title to today's spot on the deadline track (D44).
+    private func runToPill() async {
+        guard hasDeadline else {
+            runner = .title
+            return
+        }
+        guard runner == .title else { return }
+        if reduceMotion {
+            runner = .pill
+            return
+        }
+        // The toolbar lays its items out a moment after the page appears.
+        try? await Task.sleep(for: .milliseconds(350))
+        guard !Task.isCancelled, let emoji = student?.emoji else { return }
+        let started = RunnerFlight.run(emoji, from: titleAnchor, to: runnerAnchor, fromSize: 22, toSize: 16) {
+            withAnimation(.easeOut(duration: 0.2)) { runner = .pill }
+        }
+        runner = started ? .flying : .pill
     }
 
     /// Recording another student stops theirs first, which is then transcribed like after Stop.

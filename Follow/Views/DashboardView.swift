@@ -5,6 +5,7 @@ import SwiftUI
 struct DashboardView: View {
     @Environment(\.appDatabase) private var db
     let groupID: Int64
+    let group: StudentGroup?
     let progress: [StudentProgress]
     var onAdd: () -> Void
     var onSelect: (Int64) -> Void
@@ -40,6 +41,9 @@ struct DashboardView: View {
             }
         }
         .toolbar {
+            if let group, group.deadline != nil {
+                DeadlinePill(group: group, runner: .cat)
+            }
             Button("New Note", systemImage: "square.and.pencil") { sheet = .newNote(on: .now, studentID: nil) }
                 .disabled(progress.isEmpty)
                 .help("Write a note about a student's progress")

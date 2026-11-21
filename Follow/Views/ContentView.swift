@@ -20,6 +20,7 @@ struct ContentView: View {
     @State private var nameDraft = ""
     @State private var deleting: GroupProgress?
     @State private var deletingStudent: StudentProgress?
+    @State private var deadlineGroup: StudentGroup?
     @State private var error: String?
     /// Comma-separated ids of groups whose students are hidden.
     @AppStorage("sidebar.collapsedGroups") private var collapsedRaw = ""
@@ -98,6 +99,7 @@ struct ContentView: View {
                 selection = student.id.map { .student($0) }
             }
         }
+        .sheet(item: $deadlineGroup) { DeadlineSheet(group: $0) }
         .sheet(item: $editing) { s in
             StudentFormView(groups: groups.map(\.group), defaultGroupID: nil, student: s) { student in
                 // A student moved to a collapsed group stays visible.
@@ -215,6 +217,7 @@ struct ContentView: View {
                 selection = .group(id)
                 importing = true
             }
+            Button(g.group.deadline == nil ? "Set Deadline…" : "Edit Deadline…") { deadlineGroup = g.group }
             Divider()
             if g.group.isArchived {
                 Button("Unarchive") { setArchived(g, false) }
@@ -323,12 +326,12 @@ struct ContentView: View {
         switch selection {
         case .group(let id):
             let g = groups.first { $0.id == id }
-            DashboardView(groupID: id, progress: g?.students ?? [], onAdd: { adding = true }) { selection = .student($0) }
+            DashboardView(groupID: id, group: g?.group, progress: g?.students ?? [], onAdd: { adding = true }) { selection = .student($0) }
                 .id(id)
                 .navigationTitle(g?.group.name ?? "Dashboard")
                 .navigationSubtitle(g?.group.isArchived == true ? "Archived" : "")
         case .student(let id):
-            StudentDetailView(studentID: id, groupName: currentGroup?.group.name ?? "group", onOpenStudent: open(student:)).id(id)
+            StudentDetailView(studentID: id, groupName: currentGroup?.group.name ?? "group", group: currentGroup?.group, onOpenStudent: open(student:)).id(id)
         case nil:
             ContentUnavailableView {
                 Label("No groups yet", systemImage: "folder")

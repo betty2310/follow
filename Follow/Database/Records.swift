@@ -39,14 +39,22 @@ struct StudentGroup: Codable, Hashable, Identifiable, Sendable, MutablePersistab
     var createdAt: Date
     /// Set when the teacher archives the group: it moves to the sidebar's Archived section. Nothing is deleted.
     var archivedAt: Date?
+    /// The day the group's projects are due, such as demo day (D44); 00:00 local time. Every student
+    /// of the group counts down to it. Nil when the teacher hasn't set one.
+    var deadline: Date?
+    /// What happens on `deadline`, such as "Demo day".
+    var deadlineTitle: String
 
     static let databaseTableName = "studentGroup"
 
-    init(id: Int64? = nil, name: String, createdAt: Date = .now, archivedAt: Date? = nil) {
+    init(id: Int64? = nil, name: String, createdAt: Date = .now, archivedAt: Date? = nil,
+         deadline: Date? = nil, deadlineTitle: String = "") {
         self.id = id
         self.name = name
         self.createdAt = createdAt
         self.archivedAt = archivedAt
+        self.deadline = deadline
+        self.deadlineTitle = deadlineTitle
     }
 
     var isArchived: Bool { archivedAt != nil }
