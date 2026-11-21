@@ -159,7 +159,7 @@ struct SessionBoard: View {
                 let free = students.filter { !present.contains($0.id!) }
                     .sorted { $0.fullName.localizedStandardCompare($1.fullName) == .orderedAscending }
                 ForEach(free) { s in
-                    Button("\(s.emoji) \(s.fullName)") { toggleCheckIn(s.id!, on: day) }
+                    Button(s.fullName) { toggleCheckIn(s.id!, on: day) }
                 }
                 if free.isEmpty { Text("Every student has a report on this day") }
             }
@@ -352,7 +352,7 @@ private struct PinCard: View {
             .foregroundStyle(.secondary)
 
             if showsStudent {
-                Text("\(item.student.emoji) \(item.student.fullName)")
+                Text(item.student.fullName)
                     .font(.caption.bold())
                     .lineLimit(1)
             }
@@ -380,7 +380,7 @@ private struct CheckInPin: View {
         HStack(spacing: 5) {
             Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
             if showsStudent {
-                Text("\(item.student.emoji) \(item.student.fullName)").lineLimit(1)
+                Text(item.student.fullName).lineLimit(1)
             } else {
                 Text("Checked in")
             }

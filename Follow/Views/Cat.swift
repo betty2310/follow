@@ -6,7 +6,7 @@ import SwiftUI
 /// It walks to random spots, blinks and says things now and then; click it for a random trick,
 /// right-click to hide it (Settings brings it back).
 struct CatPlayground: View {
-    @AppStorage("cat.visible") private var visible = true
+    @AppStorage("cat.visible") private var visible = false
     @AppStorage("cat.size") private var catSize = CatSprite.defaultSize
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var area: CGSize = .zero

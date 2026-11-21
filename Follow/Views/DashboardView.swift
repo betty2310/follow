@@ -83,7 +83,7 @@ private struct MissingList: View {
                 HStack(spacing: 6) {
                     ForEach(students) { s in
                         HStack(spacing: 2) {
-                            Button("\(s.student.emoji) \(s.student.fullName)") { onSelect(s.id) }
+                            Button(s.student.fullName) { onSelect(s.id) }
                                 .buttonStyle(.borderless)
                                 .padding(.leading, 8)
                             Button("Check In", systemImage: "checkmark.circle") { checkIn(s.id) }

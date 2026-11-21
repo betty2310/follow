@@ -6,7 +6,7 @@ struct SettingsView: View {
     @AppStorage("anthropicModel") private var anthropicModel = AnthropicSummarizer.defaultModel
     @AppStorage("openAIBaseURL") private var openAIBaseURL = OpenAICompatibleSummarizer.defaultBaseURL
     @AppStorage("openAIModel") private var openAIModel = OpenAICompatibleSummarizer.defaultModel
-    @AppStorage("cat.visible") private var showsCat = true
+    @AppStorage("cat.visible") private var showsCat = false
     @AppStorage("cat.size") private var catSize = CatSprite.defaultSize
     @State private var keys: [APIKey: String] = [:]
     @Environment(AppUpdater.self) private var updater
