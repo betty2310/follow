@@ -20,6 +20,8 @@ struct StudentDetailView: View {
     @State private var runner = RunnerPlace.title
     @State private var titleAnchor = ScreenAnchor()
     @State private var runnerAnchor = ScreenAnchor()
+    @AppStorage(RunnerStyle.key) private var runnerStyle = RunnerStyle.hop
+    @AppStorage(RunnerStyle.speedKey) private var runnerSpeed = 1.0
 
     private enum RunnerPlace { case title, flying, pill }
     private var hasDeadline: Bool { group?.deadline != nil }
@@ -166,10 +168,22 @@ struct StudentDetailView: View {
         // The toolbar lays its items out a moment after the page appears.
         try? await Task.sleep(for: .milliseconds(350))
         guard !Task.isCancelled, let emoji = student?.emoji else { return }
-        let started = RunnerFlight.run(emoji, from: titleAnchor, to: runnerAnchor, fromSize: 22, toSize: 16) {
-            withAnimation(.easeOut(duration: 0.2)) { runner = .pill }
+        let started = RunnerFlight.run(emoji, style: runnerStyle, speed: runnerSpeed, from: titleAnchor, to: runnerAnchor,
+                                       fromSize: 22, toSize: 16, clear: titleClearance) {
+            runner = .pill
         }
         runner = started ? .flying : .pill
+    }
+
+    /// From the middle of the title's animal to just past the name and student ID next to it: the first leap's length.
+    private var titleClearance: CGFloat {
+        func width(_ text: String, _ font: NSFont) -> CGFloat {
+            NSAttributedString(string: text, attributes: [.font: font]).size().width
+        }
+        let text = max(width(student?.fullName ?? "", .boldSystemFont(ofSize: 13)),
+                       width(student?.mssv ?? "", .systemFont(ofSize: 11)))
+        // 30 pt from the animal's middle to the text, and room to land after it.
+        return 30 + text + 18
     }
 
     /// Recording another student stops theirs first, which is then transcribed like after Stop.

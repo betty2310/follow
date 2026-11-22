@@ -54,7 +54,7 @@ struct DeadlinePill: View {
 }
 
 /// The track itself: the done part solid, the rest faint, orange in the last week.
-private struct DeadlineTrack: View {
+struct DeadlineTrack: View {
     let countdown: Countdown
     let runner: DeadlineRunner
     let runnerVisible: Bool
@@ -82,7 +82,6 @@ private struct DeadlineTrack: View {
                 if runnerVisible {
                     // Mirrored, so it faces the flag.
                     Text(emoji).font(.system(size: 16)).scaleEffect(x: -1)
-                        .transition(.scale(scale: 0.7, anchor: .bottom).combined(with: .opacity))
                 }
             }
             .frame(width: 20, height: 20)
@@ -268,20 +267,18 @@ struct ScreenAnchorView: NSViewRepresentable {
     func updateNSView(_ view: NSView, context: Context) { anchor.view = view }
 }
 
-/// The student's animal hopping from the title to its spot on the deadline track, in a clear panel
+/// The student's animal running from the title to its spot on the deadline track, in a clear panel
 /// above the window that takes no clicks.
 @MainActor enum RunnerFlight {
     /// Runs and calls `onLand` when it lands; returns false (and does nothing) when a place is unknown.
+    /// `clear` is how far the first leap goes to get over the name next to the animal.
     @discardableResult
-    static func run(_ emoji: String, from: ScreenAnchor, to: ScreenAnchor, fromSize: CGFloat, toSize: CGFloat,
+    static func run(_ emoji: String, style: RunnerStyle, speed: Double, from: ScreenAnchor, to: ScreenAnchor,
+                    fromSize: CGFloat, toSize: CGFloat, clear: CGFloat,
                     onLand: @escaping @MainActor () -> Void) -> Bool {
         guard let window = from.window, let a = from.frame, let b = to.frame else { return false }
-        let area = a.union(b).insetBy(dx: -40, dy: -40)
-        // Panel coordinates have their origin at the top left; the screen's is at the bottom left.
-        func local(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x - area.minX, y: area.maxY - p.y) }
-        let start = local(CGPoint(x: a.midX, y: a.midY)), end = local(CGPoint(x: b.midX, y: b.midY))
-        let duration = min(0.45 + hypot(end.x - start.x, end.y - start.y) * 0.0008, 1.0)
-
+        // The run stays inside the window, so the panel does too: macOS moves a panel that reaches under the menu bar.
+        let area = a.union(b).insetBy(dx: -40, dy: -40).intersection(window.frame)
         let panel = NSPanel(contentRect: area, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.isOpaque = false
         panel.backgroundColor = .clear
@@ -289,13 +286,20 @@ struct ScreenAnchorView: NSViewRepresentable {
         panel.ignoresMouseEvents = true
         panel.isReleasedWhenClosed = false
         panel.collectionBehavior = [.transient, .ignoresCycle]
-        panel.contentView = NSHostingView(rootView: FlightView(
-            emoji: emoji, from: start, to: end, fromSize: fromSize, toSize: toSize, start: .now, duration: duration)
-            .frame(width: area.width, height: area.height))
         window.addChildWindow(panel, ordered: .above)
 
+        // Measured from where the panel really is. Its origin is at the top left; the screen's is at the bottom left.
+        let frame = panel.frame
+        func local(_ p: CGPoint) -> CGPoint { CGPoint(x: p.x - frame.minX, y: frame.maxY - p.y) }
+        // The leap over the name goes as high as the window's top edge lets it.
+        let headroom = window.frame.maxY - a.midY - fromSize / 2 - 2
+        let path = RunnerPath(style: style, from: local(CGPoint(x: a.midX, y: a.midY)), to: local(CGPoint(x: b.midX, y: b.midY)),
+                              fromSize: fromSize, toSize: toSize, clear: clear, leap: min(max(headroom, 8), 18), speed: speed)
+        panel.contentView = NSHostingView(rootView: RunnerFlightView(emoji: emoji, path: path, start: .now)
+            .frame(width: frame.width, height: frame.height))
+
         Task { @MainActor in
-            try? await Task.sleep(for: .seconds(duration))
+            try? await Task.sleep(for: .seconds(path.duration))
             onLand()
             // One more frame, so the animal on the track is drawn before the flying one goes.
             try? await Task.sleep(for: .milliseconds(50))
@@ -306,35 +310,107 @@ struct ScreenAnchorView: NSViewRepresentable {
     }
 }
 
-private struct FlightView: View {
+/// Draws a `RunnerPath` from `start` on: the animal, the dust at its feet and the dash's speed lines.
+struct RunnerFlightView: View {
     let emoji: String
-    let from: CGPoint
-    let to: CGPoint
-    let fromSize: CGFloat
-    let toSize: CGFloat
+    let path: RunnerPath
     let start: Date
-    let duration: Double
+    private static let puffTime = 0.35
 
     var body: some View {
         TimelineView(.animation) { context in
-            let t = min(max(context.date.timeIntervalSince(start) / duration, 0), 1)
-            let e = t < 0.5 ? 4 * t * t * t : 1 - pow(-2 * t + 2, 3) / 2
-            let straight = CGPoint(x: from.x + (to.x - from.x) * e, y: from.y + (to.y - from.y) * e)
-            // It drops to a runway just under the name, so it doesn't cover the title, yet stays above the
-            // toolbar's bottom edge; then it hops up onto the track.
-            let runway = max(from.y, to.y) + 5
-            let dip = (runway - straight.y) * min(1, sin(.pi * e) * 1.6)
-            let strides = max(3, Int((hypot(to.x - from.x, to.y - from.y) / 70).rounded()))
-            let phase = t * Double(strides)
-            let hop = abs(sin(.pi * phase)) * 6 * (1 - t * 0.4)
-            let onGround = abs(sin(.pi * phase)) < 0.18 || t == 1
-            Text(emoji)
-                .font(.system(size: fromSize + (toSize - fromSize) * e))
-                .fixedSize()
-                // Mirrored to face the flag; squashed on each landing and stretched in the air.
-                .scaleEffect(x: onGround ? -1.12 : -0.95, y: onGround ? 0.86 : 1.06, anchor: .bottom)
-                .rotationEffect(.degrees(onGround ? 0 : 8), anchor: .bottom)
-                .position(x: straight.x, y: straight.y + dip - hop)
+            let time = context.date.timeIntervalSince(start)
+            let pose = path.pose(at: time)
+            ZStack {
+                ForEach(Array(path.puffs.enumerated()), id: \.offset) { _, puff in
+                    let age = (time - puff.time) / Self.puffTime
+                    if age >= 0, age < 1 {
+                        Circle().fill(.secondary.opacity(0.7 * (1 - age)))
+                            .frame(width: 6, height: 6)
+                            .scaleEffect(0.6 + age)
+                            .position(x: puff.point.x - 4 - 10 * age, y: puff.point.y - 3 - 4 * age)
+                    }
+                }
+                if pose.speed > 0.05 {
+                    ForEach(0..<3, id: \.self) { i in
+                        Capsule().fill(.secondary.opacity(pose.speed * (1 - Double(i) * 0.25)))
+                            .frame(width: 14, height: 2)
+                            .position(x: pose.center.x - pose.size / 2 - 12 - CGFloat(i) * 9,
+                                      y: pose.center.y + pose.size / 2 - 5 - CGFloat(i) * 4)
+                    }
+                }
+                RunnerSprite(emoji: emoji, pose: pose)
+            }
         }
+    }
+}
+
+private struct RunnerSprite: View {
+    let emoji: String
+    let pose: RunnerPath.Pose
+
+    var body: some View {
+        Text(emoji)
+            .font(.system(size: pose.size))
+            .fixedSize()
+            // Mirrored to face the flag; squashed on the ground and stretched in the air.
+            .scaleEffect(x: (pose.facesFlag ? -1 : 1) * pose.stretch.width, y: pose.stretch.height, anchor: .bottom)
+            .rotationEffect(.degrees(pose.tilt), anchor: .bottom)
+            .position(pose.center)
+    }
+}
+
+/// A small copy of the run for Settings: it plays again when the style or the speed changes.
+struct RunnerPreview: View {
+    let style: RunnerStyle
+    let speed: Double
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var start: Date?
+    @State private var landed = false
+    /// A track that is half done, so the runner's spot is in the middle.
+    private static let halfway = Countdown(deadline: .now.addingTimeInterval(42 * 86_400), start: .now.addingTimeInterval(-42 * 86_400))
+
+    var body: some View {
+        GeometryReader { geometry in
+            let middle = geometry.size.height / 2
+            // The animal starts where the title's emoji would be and lands on the runner's spot of the track.
+            let path = RunnerPath(style: style, from: CGPoint(x: 11, y: middle),
+                                  to: CGPoint(x: geometry.size.width - 74, y: middle),
+                                  fromSize: 22, toSize: 16, clear: 130, speed: speed)
+            HStack(spacing: 8) {
+                Color.clear.frame(width: 22, height: 22)
+                Text("Student name").font(.headline)
+                Spacer()
+                DeadlineTrack(countdown: Self.halfway, runner: .animal(""), runnerVisible: false, anchor: nil)
+                Button("Play", systemImage: "play.fill", action: play)
+                    .labelStyle(.iconOnly)
+                    .buttonStyle(.borderless)
+                    .frame(width: 20)
+                    .help("Play the run again")
+            }
+            .frame(maxHeight: .infinity)
+            // Drawn over the row; clicks go through to the Play button.
+            Group {
+                if let start, !landed, !reduceMotion {
+                    RunnerFlightView(emoji: "🐥", path: path, start: start)
+                } else {
+                    RunnerSprite(emoji: "🐥", pose: path.pose(at: landed ? path.duration : 0))
+                }
+            }
+            .allowsHitTesting(false)
+            .task(id: start) {
+                guard start != nil else { return }
+                try? await Task.sleep(for: .seconds(path.duration + 0.1))
+                if !Task.isCancelled { landed = true }
+            }
+        }
+        .frame(height: 52)
+        .onChange(of: style) { play() }
+        .onChange(of: speed) { play() }
+    }
+
+    private func play() {
+        landed = false
+        start = .now
     }
 }

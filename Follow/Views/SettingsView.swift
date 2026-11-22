@@ -8,6 +8,8 @@ struct SettingsView: View {
     @AppStorage("openAIModel") private var openAIModel = OpenAICompatibleSummarizer.defaultModel
     @AppStorage("cat.visible") private var showsCat = false
     @AppStorage("cat.size") private var catSize = CatSprite.defaultSize
+    @AppStorage(RunnerStyle.key) private var runnerStyle = RunnerStyle.hop
+    @AppStorage(RunnerStyle.speedKey) private var runnerSpeed = 1.0
     @State private var keys: [APIKey: String] = [:]
     @Environment(AppUpdater.self) private var updater
 
@@ -44,6 +46,25 @@ struct SettingsView: View {
                     Image(systemName: "cat").imageScale(.large)
                 }
                 CatPreview(pixel: catSize)
+            }
+            // How a student's animal gets from the title to the deadline pill (D44).
+            Section {
+                Picker("Style", selection: $runnerStyle) {
+                    ForEach(RunnerStyle.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                Slider(value: $runnerSpeed, in: RunnerStyle.speeds) {
+                    Text("Speed")
+                } minimumValueLabel: {
+                    Image(systemName: "tortoise")
+                } maximumValueLabel: {
+                    Image(systemName: "hare")
+                }
+                RunnerPreview(style: runnerStyle, speed: runnerSpeed)
+            } header: {
+                Text("Run to the Deadline")
+            } footer: {
+                Text("On a student's page, their animal runs from the title to the deadline pill.")
             }
             Section("Updates") {
                 @Bindable var updater = updater

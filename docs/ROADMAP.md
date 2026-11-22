@@ -50,6 +50,7 @@ Status: `[ ]` todo, `[~]` in progress / stubbed, `[x]` done. Update this file as
 - [x] Calendar follows the selected session; session sections as cards, summary and transcript side by side when wide; Record as the primary toolbar button; cross-fade between students (D33)
 - [x] Toolbar grouped by job: + menu in the sidebar (also File menu shortcuts), collapse all in the Groups header and View menu, Check In / New Note / Record together, Notes toggle at the trailing edge, recording timer and "who is recording" chip (D43)
 - [x] Group deadline countdown pill in the toolbar (weeks and days on hover, popover, edit sheet, group menu); the student's emoji hops from the title into the track, the cat walks it on the group page; roaming cat off by default and fewer emoji on the board (`Countdown`, `DeadlinePill`, D44)
+- [x] Run styles for the deadline runner: Hops (a leap over the name, then hops) or Dash, with a speed slider and a preview in Settings (`RunnerPath`, `RunnerPreview`, D44)
 - [x] Week / Month switch on the student calendar (D24; Week became Days in D36)
 - [ ] Previous week's summary shown while recording
 - [x] Session edit (date, summary) / delete (recording to Trash), a note box per session, Notes inspector on the student page (`SessionNotesView`, D29; editing moved into the pin dialog, D36)

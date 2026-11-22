@@ -579,6 +579,78 @@ struct CountdownTests {
     }
 }
 
+struct RunnerPathTests {
+    private let from = CGPoint(x: 100, y: 30), to = CGPoint(x: 700, y: 36)
+
+    private func path(_ style: RunnerStyle, clear: CGFloat = 160, speed: Double = 1) -> RunnerPath {
+        RunnerPath(style: style, from: from, to: to, fromSize: 22, toSize: 16, clear: clear, leap: 14, speed: speed)
+    }
+
+    /// Samples the run every millisecond.
+    private func poses(_ path: RunnerPath) -> [RunnerPath.Pose] {
+        stride(from: 0.0, through: path.duration, by: 0.001).map(path.pose(at:))
+    }
+
+    @Test(arguments: RunnerStyle.allCases)
+    func startsInTheTitleAndEndsOnTheTrack(style: RunnerStyle) {
+        let path = path(style)
+        #expect(path.pose(at: 0) == RunnerPath.Pose(center: from, size: 22, facesFlag: false))
+        #expect(path.pose(at: path.duration) == RunnerPath.Pose(center: to, size: 16))
+        #expect(path.pose(at: path.duration + 5) == path.pose(at: path.duration))
+    }
+
+    @Test func firstLeapGoesOverTheNameThenLowerHopsFollow() throws {
+        let path = path(.hop)
+        // The straight line from the title to the track; a hop is how far above it the animal is.
+        func lift(_ pose: RunnerPath.Pose) -> CGFloat {
+            from.y + (to.y - from.y) * (pose.center.x - from.x) / (to.x - from.x) - pose.center.y
+        }
+        let poses = poses(path)
+        #expect(poses.allSatisfy { lift($0) > -0.001 })
+        #expect(zip(poses, poses.dropFirst()).allSatisfy { $0.center.x <= $1.center.x })
+
+        // It lands just past the name (160 pt on), and the top of that leap is the highest point of the run.
+        let landings = path.puffs.map(\.point.x)
+        #expect(try abs(#require(landings.first) - 260) < 0.05)
+        let overName = poses.filter { $0.center.x < 260 }.map(lift).max()!
+        let afterName = poses.filter { $0.center.x > 260 }.map(lift).max()!
+        #expect(abs(overName - 14) < 0.01)
+        #expect(afterName > 10 && afterName < overName)
+
+        // 440 pt are left: six hops of about 72 pt, so five more landings before the track.
+        #expect(landings.count == 6)
+        for (time, x) in zip(path.puffs.map(\.time), landings) {
+            #expect(abs(path.pose(at: time).center.x - x) < 0.5)
+            #expect(abs(lift(path.pose(at: time))) < 0.01)
+        }
+    }
+
+    @Test func hopsWithoutANameToClear() {
+        let path = path(.hop, clear: 0)
+        #expect(path.puffs.count == 7) // 600 pt: eight hops, the last one lands on the track
+        #expect(poses(path).map { 30 - $0.center.y }.max()! > 8)
+    }
+
+    @Test func dashSlidesPastItsSpotAndStepsBack() {
+        let path = path(.dash)
+        let poses = poses(path)
+        let farthest = poses.map(\.center.x).max()!
+        #expect(farthest > 705 && farthest < 712)
+        // No jumps: it never rises above the line from the title to the track.
+        #expect(poses.allSatisfy { $0.center.y >= 30 - 0.001 })
+        #expect(path.pose(at: 0.01).speed > 0.9)
+        #expect(path.duration < self.path(.hop).duration)
+    }
+
+    @Test(arguments: RunnerStyle.allCases)
+    func speedShortensTheRun(style: RunnerStyle) {
+        #expect(abs(path(style, speed: 2).duration * 2 - path(style).duration) < 0.0001)
+        #expect(abs(path(style, speed: 0.5).duration - path(style).duration * 2) < 0.0001)
+        // Out of range speeds are held to what Settings offers.
+        #expect(path(style, speed: 100).duration == path(style, speed: 2).duration)
+    }
+}
+
 struct SonioxEngineTests {
     @Test func groupsTokensBySpeakerAndRelabelsInOrderOfAppearance() {
         let tokens: [SonioxEngine.Token] = [

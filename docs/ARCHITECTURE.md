@@ -29,7 +29,7 @@ Follow/
   Engines/
     Transcription/  TranscriptionEngine protocol + providers
     Summarization/  SummarizationEngine protocol, SummaryPrompt, SummaryResult.parse + providers (Anthropic, OpenAI-compatible)
-  Services/       AudioRecorder, AudioPlayer (session dialog), SessionProcessor, StudentImporter (xlsx), APIKeys, WeekCalendar, Countdown (group deadline math, D44), AppUpdater (Sparkle), RenameMigration (one-time move from the old ProjectRecord name, D32)
+  Services/       AudioRecorder, AudioPlayer (session dialog), SessionProcessor, StudentImporter (xlsx), APIKeys, WeekCalendar, Countdown (group deadline math, D44), RunnerPath (the animal's run to the deadline pill as a function of time, D44), AppUpdater (Sparkle), RenameMigration (one-time move from the old ProjectRecord name, D32)
   Views/          SwiftUI views: ContentView (sidebar + SidebarItem routing), DashboardView (stats + day board), StudentDetailView (title + day board, SessionNotesView inspector), SessionBoard (D36 day board: Days/Month, pins, context menu, SessionActions), SessionDetailSheet (pin dialog), NoteComposerView (new note), MonthGrid, ImportStudentsView, StudentFormView (add / edit student), SettingsView (⌘, window), DeadlinePill (toolbar countdown, deadline sheet, title-to-pill run, D44)
 FollowTests/
   Fixtures/       Sample files with fake data (never commit real student data)
